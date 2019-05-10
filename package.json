@@ -1,0 +1,36 @@
+{
+  "name": "redis-face",
+  "version": "1.0.0",
+  "description": "A toolset to convert redis types to js types.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "node test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hyurl/redis-face.git"
+  },
+  "keywords": [
+    "redis",
+    "toolset",
+    "utils"
+  ],
+  "author": "Ayon Lee <i@hyurl.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/hyurl/redis-face/issues"
+  },
+  "homepage": "https://github.com/hyurl/redis-face#readme",
+  "dependencies": {
+    "@types/redis": "^2.8.12"
+  },
+  "devDependencies": {
+    "@types/mocha": "^5.2.6",
+    "@types/node": "^12.0.0",
+    "mocha": "^6.1.4",
+    "redis": "^2.8.0",
+    "ts-node": "^8.1.0",
+    "typescript": "^3.4.5"
+  }
+}
