@@ -4,17 +4,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const { redis: _redis, drop } = require("./util");
 
 class RedisString {
-    static use(redis) {
-        return Object.assign(new this(), {
-            [_redis]: redis
-        });
+    constructor(redis) {
+        this[_redis] = redis;
     }
 
     /**
      * @param {string} key 
-     * @param {string|number} value 
+     * @param {string} value 
      * @param {number} [ttl]
-     * @returns {Promise<string|number>} 
+     * @returns {Promise<string>} 
      */
     set(key, value, ttl) {
         return new Promise((resolve, reject) => {
@@ -32,7 +30,7 @@ class RedisString {
 
     /**
      * @param {string} key 
-     * @returns {Promise<string|number>}
+     * @returns {Promise<string>}
      */
     get(key) {
         return new Promise((resolve, reject) => {
@@ -45,7 +43,7 @@ class RedisString {
     /**
      * @param {string} key 
      * @param {number} [value]
-     * @returns {Promise<string|number>}
+     * @returns {Promise<string>}
      */
     incr(key, value) {
         return new Promise((resolve, reject) => {
@@ -58,13 +56,13 @@ class RedisString {
                     err ? reject(err) : resolve(result);
                 });
             }
-        });
+        }).then(String); // type fix
     }
 
     /**
      * @param {string} key 
      * @param {number} [value]
-     * @returns {Promise<string|number>}
+     * @returns {Promise<string>}
      */
     decr(key, value) {
         return new Promise((resolve, reject) => {
@@ -77,7 +75,7 @@ class RedisString {
                     err ? reject(err) : resolve(result);
                 });
             }
-        });
+        }).then(String); // type fix
     }
 
     /**

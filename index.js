@@ -3,17 +3,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 
 const { RedisString } = require("./String");
 const { default: createListCtor } = require("./List");
-const { default: createHashMapCtor } = require("./HashMap").default;
-const { default: createSetCtor } = require("./Set").default;
+const { default: createSetCtor } = require("./Set");
+const { default: createHashMapCtor } = require("./HashMap");
 
 function createTypeInterface(conn) {
-    let conn;
-
     return {
-        String: RedisString.use(conn),
+        String: new RedisString(conn),
         List: createListCtor(conn),
-        HashMap: createHashMapCtor(conn),
-        Set: createSetCtor(conn)
+        Set: createSetCtor(conn),
+        HashMap: createHashMapCtor(conn)
     };
 }
 

@@ -5,12 +5,14 @@ exports.redis = Symbol("RedisClient");
 exports.key = Symbol("RedisDataKey");
 
 exports.createFactory = (type, redis) => {
-    ctor = type.bind(void 0, redis);
+    let ctor = type.bind(void 0, redis);
 
-    ctor.prototype = type.prototype;
+    Object.defineProperty(ctor, "prototype", {
+        value: type.prototype
+    });
     ctor.of = function (name) {
         return new ctor(name);
-    }
+    };
 
     return ctor;
 };
@@ -18,7 +20,7 @@ exports.createFactory = (type, redis) => {
 exports.drop = (type, key) => {
     return new Promise((resolve, reject) => {
         type[exports.redis].del(key, (err, result) => {
-            err ? reject(err) : resolve();
+            err ? reject(err) : resolve(result > 0);
         });
     });
 };
@@ -34,6 +36,6 @@ exports.CompoundType = class CompoundType {
      * @returns {Promise<void>}
      */
     clear() {
-        return drop(this, this[exports.key]);
+        return exports.drop(this, this[exports.key]).then(() => void 0);
     }
 };

@@ -26,7 +26,7 @@ class RedisList extends CompoundType {
      */
     unshift(...values) {
         return new Promise((resolve, reject) => {
-            this[_redis].lpush(this[_key], ...values, (err, result) => {
+            this[_redis].lpush(this[_key], ...values.reverse(), (err, result) => {
                 err ? reject(err) : resolve(result);
             });
         });
@@ -75,19 +75,6 @@ class RedisList extends CompoundType {
     }
 
     /**
-     * @param {number} start 
-     * @param {number} [end]
-     * @returns {Promise<string[]>} 
-     */
-    slice(start, end = -1) {
-        return new Promise((resolve, reject) => {
-            this[_redis].ltrim(this[_key], start, end, err => {
-                err ? reject(err) : resolve();
-            })
-        }).then(this.values.bind(this));
-    }
-
-    /**
      * @returns {Promise<string[]>}
      */
     values() {
@@ -95,6 +82,33 @@ class RedisList extends CompoundType {
             this[_redis].lrange(this[_key], 0, -1, (err, result) => {
                 err ? reject(err) : resolve(result);
             });
+        });
+    }
+
+    /**
+     * @param {number} start 
+     * @param {number} [end]
+     * @returns {Promise<string[]>} 
+     */
+    slice(start, end = 0) {
+        return new Promise((resolve, reject) => {
+            this[_redis].ltrim(this[_key], start, end - 1, err => {
+                err ? reject(err) : resolve();
+            });
+        }).then(this.values.bind(this));
+    }
+
+    /**
+     * @param {number} start 
+     * @param {number} [count]
+     * @returns {Promise<string[]>} 
+     */
+    splice(start, count = 1) {
+        return this.values().then(values => {
+            let spliced = values.splice(start, count);
+            return this.clear()
+                .then(() => this.push(...values))
+                .then(() => spliced);
         });
     }
 
