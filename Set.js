@@ -1,37 +1,25 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
-const {
-    key: _key,
-    redis: _redis,
-    CompoundType,
-    createFactory
-} = require("./util");
+const { RedisFacade } = require("./Facade");
+const { createFacadeCtor } = require("./util");
 
-class RedisSet extends CompoundType {
+class RedisSet extends RedisFacade {
     /**
-     * @param {string} value 
+     * @param {...string} values
      * @returns {Promise<this>}
      */
-    add(value) {
-        return new Promise((resolve, reject) => {
-            this[_redis].sadd(this[_key], value, err => {
-                err ? reject(err) : resolve(this);
-            });
-        });
+    add(...values) {
+        return this._emitCommand("sadd", ...values).then(() => this);
     }
 
     /**
      * 
-     * @param {string} value
+     * @param {...string} values
      * @returns {Promise<boolean>} 
      */
-    delete(value) {
-        return new Promise((resolve, reject) => {
-            this[_redis].srem(this[_key], value, (err, result) => {
-                err ? reject(err) : resolve(result > 0);
-            });
-        });
+    delete(...values) {
+        return this._emitCommand("srem", ...values).then(res => res > 0);
     }
 
     /**
@@ -39,36 +27,23 @@ class RedisSet extends CompoundType {
      * @returns {Promise<boolean>} 
      */
     has(value) {
-        return new Promise((resolve, reject) => {
-            this[_redis].sismember(this[_key], value, (err, result) => {
-                err ? reject(err) : resolve(result > 0);
-            });
-        });
+        return this._emitCommand("sismember", value).then(res => res > 0);
     }
 
     /**
      * @returns {Promise<string[]>}
      */
     values() {
-        return new Promise((resolve, reject) => {
-            this[_redis].smembers(this[_key], (err, result) => {
-                err ? reject(err) : resolve(result);
-            });
-        }).then(result => result.reverse()); // fix order
+        // fix order after retrieve the result
+        return this._emitCommand("smembers");
     }
 
     /**
      * @returns {Promise<number>}
      */
     getSize() {
-        return new Promise((resolve, reject) => {
-            this[_redis].scard(this[_key], (err, result) => {
-                err ? reject(err) : resolve(result);
-            });
-        });
+        return this._emitCommand("scard");
     }
 }
 
-exports.default = function factory(redis) {
-    return createFactory(RedisSet, redis);
-};
+exports.default = redis => createFacadeCtor(RedisSet, redis);

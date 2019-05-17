@@ -1,23 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
-const {
-    key: _key,
-    redis: _redis,
-    CompoundType,
-    createFactory
-} = require("./util");
+const { RedisFacade } = require("./Facade");
+const { createFacadeCtor, isVoid } = require("./util");
 
-class RedisList extends CompoundType {
+class RedisList extends RedisFacade {
     /**
      * @returns {Promise<string>}
      */
     shift() {
-        return new Promise((resolve, reject) => {
-            this[_redis].lpop(this[_key], (err, result) => {
-                err ? reject(err) : resolve(result);
-            });
-        });
+        return this._emitCommand("lpop");
     }
 
     /**
@@ -25,22 +17,14 @@ class RedisList extends CompoundType {
      * @returns {Promise<number>}
      */
     unshift(...values) {
-        return new Promise((resolve, reject) => {
-            this[_redis].lpush(this[_key], ...values.reverse(), (err, result) => {
-                err ? reject(err) : resolve(result);
-            });
-        });
+        return this._emitCommand("lpush", ...values.reverse());
     }
 
     /**
      * @returns {Promise<string>}
      */
     pop() {
-        return new Promise((resolve, reject) => {
-            this[_redis].rpop(this[_key], (err, result) => {
-                err ? reject(err) : resolve(result);
-            });
-        });
+        return this._emitCommand("rpop");
     }
 
     /**
@@ -48,11 +32,7 @@ class RedisList extends CompoundType {
      * @returns {Promise<number>} 
      */
     push(...values) {
-        return new Promise((resolve, reject) => {
-            this[_redis].rpush(this[_key], ...values, (err, result) => {
-                err ? reject(err) : resolve(result);
-            });
-        });
+        return this._emitCommand("rpush", ...values);
     }
 
     /**
@@ -61,28 +41,18 @@ class RedisList extends CompoundType {
      * @returns {Promise<string>}
      */
     valueAt(index, value) {
-        return new Promise((resolve, reject) => {
-            if (value === undefined) {
-                this[_redis].lindex(this[_key], index, (err, result) => {
-                    err ? reject(err) : resolve(result);
-                });
-            } else {
-                this[_redis].lset(this[_key], index, value, err => {
-                    err ? reject(err) : resolve(value);
-                });
-            }
-        });
+        if (isVoid(value)) {
+            return this._emitCommand("lindex", index);
+        } else {
+            return this._emitCommand("lset", index, value);
+        }
     }
 
     /**
      * @returns {Promise<string[]>}
      */
     values() {
-        return new Promise((resolve, reject) => {
-            this[_redis].lrange(this[_key], 0, -1, (err, result) => {
-                err ? reject(err) : resolve(result);
-            });
-        });
+        return this.slice(0);
     }
 
     /**
@@ -91,11 +61,7 @@ class RedisList extends CompoundType {
      * @returns {Promise<string[]>} 
      */
     slice(start, end = 0) {
-        return new Promise((resolve, reject) => {
-            this[_redis].ltrim(this[_key], start, end - 1, err => {
-                err ? reject(err) : resolve();
-            });
-        }).then(this.values.bind(this));
+        return this._emitCommand("lrange", start, end - 1);
     }
 
     /**
@@ -116,14 +82,8 @@ class RedisList extends CompoundType {
      * @returns {Promise<number>}
      */
     getLength() {
-        return new Promise((resolve, reject) => {
-            this[_redis].llen(this[_key], (err, result) => {
-                err ? reject(err) : resolve(result);
-            });
-        });
+        return this._emitCommand("llen");
     }
 }
 
-exports.default = function factory(redis) {
-    return createFactory(RedisList, redis);
-};
+exports.default = redis => createFacadeCtor(RedisList, redis);

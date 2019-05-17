@@ -1,23 +1,34 @@
 import { RedisClient } from "redis";
 
-interface RedisCollectionBase {
-    values(): Promise<string[]>;
+export interface RedisOperator {
+    has(key: string): Promise<boolean>;
+    delete(key: string): Promise<boolean>;
+}
+
+export interface RedisFacade {
+    setTTL(seconds: number): Promise<void>;
+    getTTL(): Promise<number>;
     clear(): Promise<void>;
 }
 
-interface RedisCollection extends RedisCollectionBase {
-    getSize(): Promise<number>;
+export interface RedisFacadeType<T> {
+    readonly prototype: T;
+    of(key: string): T;
 }
 
-export interface RedisString {
-    set(key: string, value: string, ttl?: number): Promise<string>;
-    get(key: string): Promise<string>;
-    delete(key: string): Promise<boolean>;
-    incr(key: string, value?: number): Promise<string>;
-    decr(key: string, value?: number): Promise<string>;
+export interface RedisString extends RedisFacade {
+    set(value: string, ttl?: number): Promise<string>;
+    get(): Promise<string>;
+    getLength(): Promise<number>;
+    increase(increment?: number): Promise<string>;
+    decrease(decrement?: number): Promise<string>;
 }
 
-export interface RedisList extends RedisCollectionBase {
+export interface RedisCompoundType extends RedisFacade {
+    values(): Promise<string[]>;
+}
+
+export interface RedisList extends RedisCompoundType {
     pop(): Promise<string>;
     push(...values: string[]): Promise<number>;
     shift(): Promise<string>;
@@ -28,29 +39,42 @@ export interface RedisList extends RedisCollectionBase {
     getLength(): Promise<number>;
 }
 
-export interface RedisSet extends RedisCollection {
-    add(value: string): Promise<this>;
+export interface RedisCollection extends RedisCompoundType {
+    getSize(): Promise<number>;
+}
+
+export interface RedisSetKind extends RedisCollection {
     has(value: string): Promise<boolean>;
-    delete(value: string): Promise<boolean>;
+    delete(...values: string[]): Promise<boolean>;
+}
+
+export interface RedisSet extends RedisSetKind {
+    add(...values: string[]): Promise<this>;
 }
 
 export interface RedisHashMap extends RedisCollection {
     set(key: string, value: string): Promise<this>;
+    set(pairs: { [key: string]: string }): Promise<this>;
     get(key: string): Promise<string>;
     has(key: string): Promise<boolean>;
     delete(key: string): Promise<boolean>;
+    increase(key: string, increment?: number): Promise<string>;
+    decrease(key: string, decrement?: number): Promise<string>;
     keys(): Promise<string[]>;
     pairs(): Promise<{ [key: string]: string }>;
 }
 
-export interface RedisCompundType<T> extends Function {
-    readonly prototype: T;
-    of(name: string): T;
+// TODO
+export interface RedisSortedSet extends RedisSetKind {
+    add(value: string, score: number): Promise<this>;
+    getScore(value: string): Promise<number>;
+    incScore(value: string, increment: number): Promise<number>;
 }
+// TODO
 
-export default function createDataInterface(redis: RedisClient): {
-    String: RedisString;
-    List: RedisCompundType<RedisList>;
-    Set: RedisCompundType<RedisSet>;
-    HashMap: RedisCompundType<RedisHashMap>;
+export default function createRedisFacade(redis: RedisClient): RedisOperator & {
+    String: RedisFacadeType<RedisString>;
+    List: RedisFacadeType<RedisList>;
+    Set: RedisFacadeType<RedisSet>;
+    HashMap: RedisFacadeType<RedisHashMap>;
 }

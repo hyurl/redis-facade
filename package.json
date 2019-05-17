@@ -5,7 +5,11 @@
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "test": "node test"
+    "pretest": "tsc -p test",
+    "test": "mocha test --exit"
+  },
+  "engines": {
+    "node": ">=6.0"
   },
   "repository": {
     "type": "git",

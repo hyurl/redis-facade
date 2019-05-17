@@ -1,18 +1,29 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
-const { RedisString } = require("./String");
-const { default: createListCtor } = require("./List");
-const { default: createSetCtor } = require("./Set");
-const { default: createHashMapCtor } = require("./HashMap");
+const { default: createStringFacade } = require("./String");
+const { default: createListFacade } = require("./List");
+const { default: createSetFacade } = require("./Set");
+const { default: createHashMapFacade } = require("./HashMap");
 
-function createTypeInterface(conn) {
+
+function createRedisFacade(redis) {
+    let emitCommand = (cmd, ...args) => {
+        return new Promise((resolve, reject) => {
+            redis[cmd](...args, (err, res) => {
+                err ? reject(err) : resolve(res > 0);
+            });
+        });
+    };
+
     return {
-        String: new RedisString(conn),
-        List: createListCtor(conn),
-        Set: createSetCtor(conn),
-        HashMap: createHashMapCtor(conn)
+        has: (key) => emitCommand("exists", key),
+        delete: (key) => emitCommand("del", key),
+        String: createStringFacade(redis),
+        List: createListFacade(redis),
+        Set: createSetFacade(redis),
+        HashMap: createHashMapFacade(redis)
     };
 }
 
-exports.default = createTypeInterface;
+exports.default = createRedisFacade;

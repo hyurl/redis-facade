@@ -1,90 +1,66 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
-const { redis: _redis, drop } = require("./util");
+const { RedisFacade } = require("./Facade");
+const { createFacadeCtor, isVoid, isFloat } = require("./util");
 
-class RedisString {
-    constructor(redis) {
-        this[_redis] = redis;
-    }
-
+class RedisString extends RedisFacade {
     /**
-     * @param {string} key 
      * @param {string} value 
      * @param {number} [ttl]
      * @returns {Promise<string>} 
      */
-    set(key, value, ttl) {
-        return new Promise((resolve, reject) => {
-            if (ttl > 0) {
-                this[_redis].setex(key, ttl, value, (err) => {
-                    err ? reject(err) : resolve(value);
-                });
-            } else {
-                this[_redis].set(key, value, (err) => {
-                    err ? reject(err) : resolve(value);
-                });
-            }
-        });
+    set(value, ttl) {
+        if (ttl > 0) {
+            return this._emitCommand("setex", ttl, value).then(() => value);
+        } else {
+            return this._emitCommand("set", value).then(() => value);
+        }
     }
 
     /**
-     * @param {string} key 
      * @returns {Promise<string>}
      */
-    get(key) {
-        return new Promise((resolve, reject) => {
-            this[_redis].get(key, (err, result) => {
-                err ? reject(err) : resolve(result);
-            });
-        });
+    get() {
+        return this._emitCommand("get");
     }
 
     /**
-     * @param {string} key 
-     * @param {number} [value]
+     * @param {number} [increment]
      * @returns {Promise<string>}
      */
-    incr(key, value) {
-        return new Promise((resolve, reject) => {
-            if (value === undefined) {
-                this[_redis].incr(key, (err, result) => {
-                    err ? reject(err) : resolve(result);
-                });
-            } else {
-                this[_redis].incrby(key, value, (err, result) => {
-                    err ? reject(err) : resolve(result);
-                });
-            }
-        }).then(String); // type fix
+    increase(increment) {
+        if (isVoid(increment)) {
+            return this._emitCommand("incr").then(String); // type fix
+        } else if (isFloat(increment)) {
+            return this._emitCommand("incrbyfloat", increment).then(String);
+        } else {
+            return this._emitCommand("incrby", increment).then(String);
+        }
     }
 
     /**
-     * @param {string} key 
-     * @param {number} [value]
+     * @param {number} [decrement]
      * @returns {Promise<string>}
      */
-    decr(key, value) {
-        return new Promise((resolve, reject) => {
-            if (value === undefined) {
-                this[_redis].decr(key, (err, result) => {
-                    err ? reject(err) : resolve(result);
-                });
-            } else {
-                this[_redis].decrby(key, value, (err, result) => {
-                    err ? reject(err) : resolve(result);
-                });
-            }
-        }).then(String); // type fix
+    decrease(decrement) {
+        if (isVoid(decrement)) {
+            return this._emitCommand("decr").then(String); // type fix
+        } else if (isFloat(decrement)) {
+            // There is no 'decrbyfloat' in redis, so incrbyfloat to the
+            // negative value instead.
+            return this._emitCommand("incrbyfloat", -decrement).then(String);
+        } else {
+            return this._emitCommand("decrby", decrement).then(String);
+        }
     }
 
     /**
-     * @param {string} key
-     * @returns {Promise<boolean>}
+     * @returns {Promise<number>} 
      */
-    delete(key) {
-        return drop(this, key);
+    getLength() {
+        return this._emitCommand("strlen");
     }
 }
 
-exports.RedisString = RedisString;
+exports.default = redis => createFacadeCtor(RedisString, redis);
