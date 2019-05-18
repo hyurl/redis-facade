@@ -1,5 +1,5 @@
-const _redis = Symbol("RedisClient");
-const _key = Symbol("RedisDataKey");
+const _redis = exports.redis = Symbol("RedisClient");
+const _key = exports.key = Symbol("RedisDataKey");
 
 class RedisFacade {
     constructor(redis, key) {
