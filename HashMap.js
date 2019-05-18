@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const { RedisFacade } = require("./Facade");
-const { createFacadeCtor, isVoid, isFloat } = require("./util");
+const { createFacadeType, isFloat } = require("./util");
 
 class RedisHashMap extends RedisFacade {
     /**
@@ -10,11 +10,11 @@ class RedisHashMap extends RedisFacade {
      * @param {string} [value]
      * @returns {Promise<this>} 
      */
-    set(key, value) {
+    set(key, value = undefined) {
         if (typeof key === "object") {
-            return this._emitCommand("hmset", key).then(() => this);
+            return this.exec("hmset", key).then(() => this);
         } else {
-            return this._emitCommand("hset", key, value).then(() => this);
+            return this.exec("hset", key, value).then(() => this);
         }
     }
 
@@ -23,7 +23,7 @@ class RedisHashMap extends RedisFacade {
      * @returns {Promise<boolean>}
      */
     delete(key) {
-        return this._emitCommand("hdel", key).then(res => res > 0);
+        return this.exec("hdel", key).then(res => res > 0);
     }
 
     /**
@@ -31,7 +31,7 @@ class RedisHashMap extends RedisFacade {
      * @returns {Promise<string>} 
      */
     get(key) {
-        return this._emitCommand("hget", key);
+        return this.exec("hget", key);
     }
 
     /**
@@ -39,35 +39,35 @@ class RedisHashMap extends RedisFacade {
      * @returns {Promise<boolean>} 
      */
     has(key) {
-        return this._emitCommand("hexists", key).then(res => res > 0);
+        return this.exec("hexists", key).then(res => res > 0);
     }
 
     /**
      * @returns {Promise<string[]>}
      */
     keys() {
-        return this._emitCommand("hkeys");
+        return this.exec("hkeys");
     }
 
     /**
      * @returns {Promise<string[]>}
      */
     values() {
-        return this._emitCommand("hvals");
+        return this.exec("hvals");
     }
 
     /**
      * @returns {Promise<{[key: string]: string}>}
      */
     pairs() {
-        return this._emitCommand("hgetall");
+        return this.exec("hgetall");
     }
 
     /**
      * @returns {Promise<number>}
      */
-    getSize() {
-        return this._emitCommand("hlen");
+    size() {
+        return this.exec("hlen");
     }
 
     /**
@@ -75,13 +75,11 @@ class RedisHashMap extends RedisFacade {
      * @param {number} [increment] 
      * @returns {Promise<string>}
      */
-    increase(key, increment) {
-        if (isVoid(increment)) {
-            return this._emitCommand("hincrby", key, 1).then(String);
-        } else if (isFloat(increment)) {
-            return this._emitCommand("hincrbyfloat", key, increment).then(String);
+    increase(key, increment = 1) {
+        if (isFloat(increment)) {
+            return this.exec("hincrbyfloat", key, increment).then(String);
         } else {
-            return this._emitCommand("hincrby", key, increment).then(String);
+            return this.exec("hincrby", key, increment).then(String);
         }
     }
 
@@ -90,9 +88,9 @@ class RedisHashMap extends RedisFacade {
      * @param {number} [decrement] 
      * @returns {Promise<string>}
      */
-    decrease(key, decrement) {
-        return this.increase(key, isVoid(decrement) ? -1 : -decrement);
+    decrease(key, decrement = 1) {
+        return this.increase(key, -decrement);
     }
 }
 
-exports.default = redis => createFacadeCtor(RedisHashMap, redis);
+exports.default = redis => createFacadeType("hash", RedisHashMap, redis);

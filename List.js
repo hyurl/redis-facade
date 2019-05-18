@@ -2,14 +2,14 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const { RedisFacade, key } = require("./Facade");
-const { createFacadeCtor, isVoid } = require("./util");
+const { createFacadeType, isVoid } = require("./util");
 
 class RedisList extends RedisFacade {
     /**
      * @returns {Promise<string>}
      */
     shift() {
-        return this._emitCommand("lpop");
+        return this.exec("lpop");
     }
 
     /**
@@ -17,14 +17,14 @@ class RedisList extends RedisFacade {
      * @returns {Promise<number>}
      */
     unshift(...values) {
-        return this._emitCommand("lpush", ...values.reverse());
+        return this.exec("lpush", ...values.reverse());
     }
 
     /**
      * @returns {Promise<string>}
      */
     pop() {
-        return this._emitCommand("rpop");
+        return this.exec("rpop");
     }
 
     /**
@@ -32,7 +32,7 @@ class RedisList extends RedisFacade {
      * @returns {Promise<number>} 
      */
     push(...values) {
-        return this._emitCommand("rpush", ...values);
+        return this.exec("rpush", ...values);
     }
 
     /**
@@ -56,11 +56,11 @@ class RedisList extends RedisFacade {
      * @param {string} [value] 
      * @returns {Promise<string>}
      */
-    valueAt(index, value) {
+    valueAt(index, value = undefined) {
         if (isVoid(value)) {
-            return this._emitCommand("lindex", index);
+            return this.exec("lindex", index);
         } else {
-            return this._emitCommand("lset", index, value).then(() => value);
+            return this.exec("lset", index, value).then(() => value);
         }
     }
 
@@ -76,8 +76,12 @@ class RedisList extends RedisFacade {
      * @param {number} [end]
      * @returns {Promise<string[]>} 
      */
-    slice(start, end = 0) {
-        return this._emitCommand("lrange", start, end - 1);
+    slice(start, end = undefined) {
+        return this.exec(
+            "lrange",
+            start,
+            isVoid(end) ? -1 : (end === 0 ? 0 : end - 1)
+        );
     }
 
     /**
@@ -95,11 +99,11 @@ class RedisList extends RedisFacade {
     }
 
     /**
-     * @param {"asc"|"desc"} order 
+     * @param {"asc"|"desc"} [order]
      * @returns {Promise<string[]>}
      */
     sort(order = "asc") {
-        return this._emitCommand("sort", "alpha", order, `store ${this[key]}`)
+        return this.exec("sort", "alpha", order, `store ${this[key]}`)
             .then(() => this.values());
     }
 
@@ -117,9 +121,9 @@ class RedisList extends RedisFacade {
     /**
      * @returns {Promise<number>}
      */
-    getLength() {
-        return this._emitCommand("llen");
+    length() {
+        return this.exec("llen");
     }
 }
 
-exports.default = redis => createFacadeCtor(RedisList, redis);
+exports.default = redis => createFacadeType("list", RedisList, redis);

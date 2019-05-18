@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const { RedisFacade } = require("./Facade");
-const { createFacadeCtor, isVoid } = require("./util");
+const { createFacadeType, isVoid } = require("./util");
 
 class RedisSortedSet extends RedisFacade {
     /**
@@ -10,17 +10,17 @@ class RedisSortedSet extends RedisFacade {
      * @param {number} [score]
      * @returns {Promise<this>}
      */
-    add(value, score) {
+    add(value, score = undefined) {
         if (typeof value === "object") {
             let data = [];
 
             for (let x in value) {
-                data.push(x, value[x]);
+                data.push(value[x], x);
             }
 
-            return this._emitCommand("zadd", ...data).then(() => this);
+            return this.exec("zadd", ...data).then(() => this);
         } else {
-            return this._emitCommand("zadd", score, value).then(() => this);
+            return this.exec("zadd", score, value).then(() => this);
         }
     }
 
@@ -30,7 +30,7 @@ class RedisSortedSet extends RedisFacade {
      * @param {number} [score]
      * @returns {Promise<this>}
      */
-    set(value, score) {
+    set(value, score = undefined) {
         return this.add(value, score);
     }
 
@@ -40,7 +40,7 @@ class RedisSortedSet extends RedisFacade {
      * @returns {Promise<boolean>} 
      */
     delete(...values) {
-        return this._emitCommand("zrem", ...values).then(res => res > 0);
+        return this.exec("zrem", ...values).then(res => res > 0);
     }
 
     /**
@@ -56,7 +56,7 @@ class RedisSortedSet extends RedisFacade {
      * @returns {Promise<number>}
      */
     indexOf(value) {
-        return this._emitCommand("zrank", value).then(index => {
+        return this.exec("zrank", value).then(index => {
             return isVoid(index) ? -1 : index;
         });
     }
@@ -70,12 +70,36 @@ class RedisSortedSet extends RedisFacade {
     }
 
     /**
+     * @param {boolean} withScores
+     * @returns {Promise<string|[string, number]>}
+     */
+    pop(withScores = false) {
+        return this.exec("zpopmax").then(([value, score]) => {
+            return withScores ? [value, Number(score)] : value;
+        });
+    }
+
+    /**
+     * @param {boolean} withScores
+     * @returns {Promise<string|[string, number]>}
+     */
+    shift(withScores = false) {
+        return this.exec("zpopmin").then(([value, score]) => {
+            return withScores ? [value, Number(score)] : value;
+        });
+    }
+
+    /**
      * @param {number} start 
      * @param {number} [end] 
      * @returns {Promise<string[]>}
      */
-    slice(start, end = 0) {
-        return this._emitCommand("zrange", start, end - 1);
+    slice(start, end = undefined) {
+        return this.exec(
+            "zrange",
+            start,
+            isVoid(end) ? -1 : (end === 0 ? 0 : end - 1)
+        );
     }
 
     /**
@@ -86,7 +110,7 @@ class RedisSortedSet extends RedisFacade {
     splice(start, count = 1) {
         let end = start + count;
         return this.slice(start, end).then(values => {
-            return this._emitCommand(
+            return this.exec(
                 "zremrangebyrank",
                 start,
                 end - 1
@@ -100,14 +124,16 @@ class RedisSortedSet extends RedisFacade {
      */
     scoreOf(value) {
         // fix type after retrieving the score
-        return this._emitCommand("zscore", value).then(Number);
+        return this.exec("zscore", value).then((res) => {
+            return res === null ? null : Number(res);
+        });
     }
 
     /**
      * @returns {Promise<{[value: string]: number}>}
      */
     scores() {
-        return this._emitCommand("zrange", 0, -1, "withscores").then(res => {
+        return this.exec("zrange", 0, -1, "withscores").then(res => {
             let data = {};
 
             for (let i = 0; i < res.length; i += 2) {
@@ -121,16 +147,16 @@ class RedisSortedSet extends RedisFacade {
     /**
      * @param {string} value 
      * @param {number} [increment] 
-     * @returns {Promise<string>}
+     * @returns {Promise<number>}
      */
     increase(value, increment = 1) {
         // fix type after retrieving the score
-        return this._emitCommand("zincrby", increment, value).then(Number);
+        return this.exec("zincrby", increment, value).then(Number);
     }
     /**
      * @param {string} value 
      * @param {number} [decrement] 
-     * @returns {Promise<string>}
+     * @returns {Promise<number>}
      */
     decrease(value, decrement = 1) {
         return this.increase(value, -decrement);
@@ -139,8 +165,8 @@ class RedisSortedSet extends RedisFacade {
     /**
      * @returns {Promise<number>}
      */
-    getSize() {
-        return this._emitCommand("zcard");
+    size() {
+        return this.exec("zcard");
     }
 
     /**
@@ -149,7 +175,7 @@ class RedisSortedSet extends RedisFacade {
      * @returns {Promise<number>}
      */
     countBetween(minScore, maxScore) {
-        return this._emitCommand("zcount", minScore, maxScore);
+        return this.exec("zcount", minScore, maxScore);
     }
 
     /**
@@ -158,7 +184,7 @@ class RedisSortedSet extends RedisFacade {
      * @returns {Promise<string[]>}
      */
     sliceBetween(minScore, maxScore) {
-        return this._emitCommand("zrangebyscore", minScore, maxScore);
+        return this.exec("zrangebyscore", minScore, maxScore);
     }
 
     /**
@@ -168,7 +194,7 @@ class RedisSortedSet extends RedisFacade {
      */
     spliceBetween(minScore, maxScore) {
         return this.sliceBetween(minScore, maxScore).then(values => {
-            return this._emitCommand(
+            return this.exec(
                 "zremrangebyscore",
                 minScore,
                 maxScore
@@ -177,4 +203,4 @@ class RedisSortedSet extends RedisFacade {
     }
 }
 
-exports.default = redis => createFacadeCtor(RedisSortedSet, redis);
+exports.default = redis => createFacadeType("zset", RedisSortedSet, redis);

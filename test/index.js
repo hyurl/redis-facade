@@ -40,12 +40,29 @@ describe("RedisString", () => {
 
     it("should get the length of the string", () => co(function* () {
         yield str.set("Hello, World!");
-        assert.strictEqual(yield str.getLength(), 13);
+        assert.strictEqual(yield str.length(), 13);
     }));
 
     it("should append value to the string", () => co(function* () {
         assert.strictEqual(yield str.append(" Hi, Ayon"), "Hello, World! Hi, Ayon");
-        assert.strictEqual(yield str.getLength(), 22);
+        assert.strictEqual(yield str.length(), 22);
+    }));
+
+    it("should slice the string with only start argument", () => co(function* () {
+        assert.strictEqual(yield str.slice(1), "ello, World! Hi, Ayon");
+    }));
+
+    it("should slice the list with both start and end argument", () => co(function* () {
+        assert.strictEqual(yield str.slice(1, 5), "ello");
+        assert.strictEqual(yield str.slice(1, 0), "");
+    }));
+
+    it("should slice the list with minus start argument", () => co(function* () {
+        assert.strictEqual(yield str.slice(-4), "Ayon");
+    }));
+
+    it("should slice the list with minus end argument", () => co(function* () {
+        assert.strictEqual(yield str.slice(0, -4), "Hello, World! Hi, ");
     }));
 
     it("should check if the string starts with a target string", () => co(function* () {
@@ -157,7 +174,7 @@ describe("RedisList", () => {
         ]);
     }));
 
-    it("should slice the list with only start position", () => co(function* () {
+    it("should slice the list with only start argument", () => co(function* () {
         assert.deepStrictEqual(yield list.slice(1), [
             "Day",
             "Hello",
@@ -167,15 +184,20 @@ describe("RedisList", () => {
         ]);
     }));
 
-    it("should slice the list with both start and end position", () => co(function* () {
+    it("should slice the list with both start and end argument", () => co(function* () {
         assert.deepStrictEqual(yield list.slice(1, 4), [
             "Day",
             "Hello",
             "World"
         ]);
+        assert.deepStrictEqual(yield list.slice(1, 0), []);
     }));
 
-    it("should slice the list with minus end position", () => co(function* () {
+    it("should slice the list with minus start argument", () => co(function* () {
+        assert.deepStrictEqual(yield list.slice(-2), ["Hi", "Ayon"]);
+    }));
+
+    it("should slice the list with minus end argument", () => co(function* () {
         assert.deepStrictEqual(yield list.slice(0, -2), [
             "Nice",
             "Day",
@@ -218,7 +240,7 @@ describe("RedisList", () => {
     }));
 
     it("should get the length of the list", () => co(function* () {
-        assert.strictEqual(yield list.getLength(), 3);
+        assert.strictEqual(yield list.length(), 3);
     }));
 
     it("should refer to the same list when providing the same name", () => co(function* () {
@@ -266,7 +288,7 @@ describe("RedisSet", () => {
 
     it("should get the size of the set", () => co(function* () {
         yield set.add("Hello", "World");
-        assert.strictEqual(yield set.getSize(), 2);
+        assert.strictEqual(yield set.size(), 2);
     }));
 
     it("should get all values of the set", () => co(function* () {
@@ -278,6 +300,91 @@ describe("RedisSet", () => {
         assert.deepStrictEqual((yield set.values()).sort(), ["Hello", "World"]);
     }));
 
+    it("should pop a random value from the set", () => co(function* () {
+        let value = yield set.pop();
+        assert.ok(["Hello", "World"].includes(value));
+        assert.strictEqual(yield set.size(), 1);
+        yield set.add(value);
+    }));
+
+    it("should pop multiple random values from the set", () => co(function* () {
+        let values = yield set.pop(2);
+        assert.deepStrictEqual(values.sort(), ["Hello", "World"]);
+        assert.strictEqual(yield set.size(), 0);
+        yield set.add(...values);
+    }));
+
+    it("should return a random value from the set", () => co(function* () {
+        let value = yield set.random();
+        assert.ok(["Hello", "World"].includes(value));
+        assert.strictEqual(yield set.size(), 2);
+    }));
+
+    it("should return multiple random values from the set", () => co(function* () {
+        let values = yield set.random(2);
+        assert.deepStrictEqual(values.sort(), ["Hello", "World"]);
+        assert.strictEqual(yield set.size(), 2);
+    }));
+
+    it("should get the different values from another set", () => co(function* () {
+        let _set = redis.Set.of("bar");
+        yield _set.add("Hello", "Ayon");
+        assert.deepStrictEqual(yield set.difference(_set), ["World"]);
+        yield _set.clear();
+    }));
+
+    it("should get the different values from other sets", () => co(function* () {
+        let _set = redis.Set.of("bar");
+        let _set2 = redis.Set.of("bar2");
+        yield _set.add("Hello", "Ayon");
+        yield _set2.add("Hi", "Ayon");
+        assert.deepStrictEqual(yield set.difference(_set, _set2), ["World"]);
+        yield _set.clear();
+        yield _set2.clear();
+    }));
+
+    it("should get the intersection values from another set", () => co(function* () {
+        let _set = redis.Set.of("bar");
+        yield _set.add("Hello", "Ayon");
+        assert.deepStrictEqual(yield set.intersection(_set), ["Hello"]);
+        yield _set.clear();
+    }));
+
+    it("should get the intersection values from other sets", () => co(function* () {
+        let _set = redis.Set.of("bar");
+        let _set2 = redis.Set.of("bar2");
+        yield _set.add("Hello", "Ayon");
+        yield _set2.add("Hello", "Ayon");
+        assert.deepStrictEqual(yield set.intersection(_set, _set2), ["Hello"]);
+        yield _set.clear();
+        yield _set2.clear();
+    }));
+
+    it("should get the union values from another set", () => co(function* () {
+        let _set = redis.Set.of("bar");
+        yield _set.add("Hello", "Ayon");
+        assert.deepStrictEqual((yield set.union(_set)).sort(), [
+            "Ayon",
+            "Hello",
+            "World"
+        ]);
+        yield _set.clear();
+    }));
+
+    it("should get the union values from other sets", () => co(function* () {
+        let _set = redis.Set.of("bar");
+        let _set2 = redis.Set.of("bar2");
+        yield _set.add("Hello", "Ayon");
+        yield _set2.add("Hi", "Ayon");
+        assert.deepStrictEqual((yield set.union(_set)).sort(), [
+            "Ayon",
+            "Hello",
+            "World"
+        ]);
+        yield _set.clear();
+        yield _set2.clear();
+    }));
+
     it("should refer to the same set when providing the same name", () => co(function* () {
         let _set = redis.Set.of("foo");
         assert.deepStrictEqual(yield set.values(), yield _set.values());
@@ -285,7 +392,7 @@ describe("RedisSet", () => {
 
     it("should clear the set", () => co(function* () {
         assert.strictEqual(yield set.clear(), undefined);
-        assert.strictEqual(yield set.getSize(), 0);
+        assert.strictEqual(yield set.size(), 0);
     }));
 });
 
@@ -318,7 +425,7 @@ describe("RedisHashMap", () => {
     }));
 
     it("should get the size of the map", () => co(function* () {
-        assert.strictEqual(yield map.getSize(), 2);
+        assert.strictEqual(yield map.size(), 2);
     }));
 
     it("should get all the keys of the map", () => co(function* () {
@@ -362,6 +469,246 @@ describe("RedisHashMap", () => {
 
     it("should clear the map", () => co(function* () {
         assert.strictEqual(yield map.clear(), undefined);
-        assert.strictEqual(yield map.getSize(), 0);
+        assert.strictEqual(yield map.size(), 0);
+    }));
+});
+
+describe("RedisSortedSet", () => {
+    let set = redis.SortedSet.of("foo");
+
+    it("should add a value into the set", () => co(function* () {
+        assert.strictEqual(yield set.add("Hello", 1), set);
+    }));
+
+    it("should add multiple values into the set", () => co(function* () {
+        assert.strictEqual(yield set.add({
+            "World": 2,
+            "Hi": 3,
+            "Ayon": 4
+        }), set);
+    }));
+
+    it("should check if a value exists in the set", () => co(function* () {
+        assert.strictEqual(yield set.has("Hello"), true);
+        assert.strictEqual(yield set.has("hello"), false);
+    }));
+
+    it("should delete a value from the set", () => co(function* () {
+        assert.strictEqual(yield set.delete("Hello"), true);
+        assert.strictEqual(yield set.delete("Hello"), false);
+        assert.strictEqual(yield set.has("Hello"), false);
+        yield set.add("Hello", 1);
+    }));
+
+    it("should get the index of a value in the set", () => co(function* () {
+        assert.strictEqual(yield set.indexOf("Hello"), 0);
+        assert.strictEqual(yield set.indexOf("World"), 1);
+        assert.strictEqual(yield set.indexOf("hello"), -1);
+    }));
+
+    it("should get the score of a value in the set", () => co(function* () {
+        assert.strictEqual(yield set.scoreOf("Hello"), 1);
+        assert.strictEqual(yield set.scoreOf("World"), 2);
+        assert.strictEqual(yield set.scoreOf("hello"), null);
+    }));
+
+    it("should get all scores of the set in a key-value pair", () => co(function* () {
+        assert.deepStrictEqual(yield set.scores(), {
+            "Hello": 1,
+            "World": 2,
+            "Hi": 3,
+            "Ayon": 4
+        });
+    }));
+
+    it("should get all values in the set", () => co(function* () {
+        assert.deepStrictEqual(yield set.values(), [
+            "Hello",
+            "World",
+            "Hi",
+            "Ayon"
+        ]);
+    }));
+
+    it("should get the size of the set", () => co(function* () {
+        assert.strictEqual(yield set.size(), 4);
+    }));
+
+    it("should set the score of a value in the set", () => co(function* () {
+        assert.strictEqual(yield set.set("Ayon", 10), set);
+        assert.strictEqual(yield set.scoreOf("Ayon"), 10);
+        yield set.set("Ayon", 4);
+    }));
+
+    it("should increase the score of a value", () => co(function* () {
+        assert.strictEqual(yield set.increase("Ayon"), 5);
+        assert.strictEqual(yield set.scoreOf("Ayon"), 5);
+    }));
+
+    it("should increase the score of a value with specified increment", () => co(function* () {
+        assert.strictEqual(yield set.increase("Ayon", 2), 7);
+        assert.strictEqual(yield set.scoreOf("Ayon"), 7);
+    }));
+
+    it("should decrease the score of a value", () => co(function* () {
+        assert.strictEqual(yield set.decrease("Ayon"), 6);
+        assert.strictEqual(yield set.scoreOf("Ayon"), 6);
+    }));
+
+    it("should decrease the score of a value with specified increment", () => co(function* () {
+        assert.strictEqual(yield set.decrease("Ayon", 2), 4);
+        assert.strictEqual(yield set.scoreOf("Ayon"), 4);
+    }));
+
+    it("should pop the last value of the set", () => co(function* () {
+        assert.strictEqual(yield set.pop(), "Ayon");
+        assert.deepStrictEqual(yield set.values(), ["Hello", "World", "Hi"]);
+        yield set.add("Ayon", 4);
+    }));
+
+    it("should pop the last value with score of the set", () => co(function* () {
+        assert.deepStrictEqual(yield set.pop(true), ["Ayon", 4]);
+        assert.deepStrictEqual(yield set.values(), ["Hello", "World", "Hi"]);
+        yield set.add("Ayon", 4);
+    }));
+
+    it("should shift the last value of the set", () => co(function* () {
+        assert.strictEqual(yield set.shift(), "Hello");
+        assert.deepStrictEqual(yield set.values(), ["World", "Hi", "Ayon"]);
+        yield set.add("Hello", 1);
+    }));
+
+    it("should shift the last value with score of the set", () => co(function* () {
+        assert.deepStrictEqual(yield set.shift(true), ["Hello", 1]);
+        assert.deepStrictEqual(yield set.values(), ["World", "Hi", "Ayon"]);
+        yield set.add("Hello", 1);
+    }));
+
+    it("should slice the set with only start argument", () => co(function* () {
+        assert.deepStrictEqual(yield set.slice(1), ["World", "Hi", "Ayon"]);
+        assert.deepStrictEqual(yield set.values(), ["Hello", "World", "Hi", "Ayon"]);
+    }));
+
+    it("should slice the set with start and end argument", () => co(function* () {
+        assert.deepStrictEqual(yield set.slice(1, 3), ["World", "Hi"]);
+        assert.deepStrictEqual(yield set.values(), ["Hello", "World", "Hi", "Ayon"]);
+    }));
+
+    it("should slice the set with minus start argument", () => co(function* () {
+        assert.deepStrictEqual(yield set.slice(-2), ["Hi", "Ayon"]);
+        assert.deepStrictEqual(yield set.values(), ["Hello", "World", "Hi", "Ayon"]);
+    }));
+
+    it("should slice the set with start end minus end argument", () => co(function* () {
+        assert.deepStrictEqual(yield set.slice(1, -1), ["World", "Hi"]);
+        assert.deepStrictEqual(yield set.values(), ["Hello", "World", "Hi", "Ayon"]);
+    }));
+
+    it("should splice a value and return it from the list", () => co(function* () {
+        assert.deepStrictEqual(yield set.splice(1), ["World"]);
+        assert.deepStrictEqual(yield set.values(), ["Hello", "Hi", "Ayon"]);
+        yield set.add("World", 2);
+    }));
+
+    it("should splice multiple values and return them from the list", () => co(function* () {
+        assert.deepStrictEqual(yield set.splice(1, 2), ["World", "Hi"]);
+        assert.deepStrictEqual(yield set.values(), ["Hello", "Ayon"]);
+        yield set.add({ "World": 2, "Hi": 3 });
+    }));
+
+    it("should count the number between two scores of the set", () => co(function* () {
+        assert.strictEqual(yield set.countBetween(1, 4), 4);
+        assert.strictEqual(yield set.countBetween(2, 3), 2);
+    }));
+
+    it("should slice values between two scores of the set", () => co(function* () {
+        assert.deepStrictEqual(yield set.sliceBetween(2, 3), ["World", "Hi"]);
+        assert.deepStrictEqual(yield set.values(), ["Hello", "World", "Hi", "Ayon"]);
+    }));
+
+    it("should splice values between two scores of the set", () => co(function* () {
+        assert.deepStrictEqual(yield set.spliceBetween(2, 3), ["World", "Hi"]);
+        assert.deepStrictEqual(yield set.values(), ["Hello", "Ayon"]);
+    }));
+
+    it("should clear the set", () => co(function* () {
+        assert.strictEqual(yield set.clear(), undefined);
+        assert.strictEqual(yield set.size(), 0);
+    }));
+});
+
+describe("RedisOperator & RedisFacadeType", () => {
+    it("should check if a key exists in redis store", () => co(function* () {
+        assert.strictEqual(yield redis.has("foo"), false);
+        yield redis.String.of("foo").set("Hello, World!");
+        assert.strictEqual(yield redis.has("foo"), true);
+    }));
+
+    it("should delete a key from the redis store", () => co(function* () {
+        assert.strictEqual(yield redis.delete("foo"), true);
+        assert.strictEqual(yield redis.delete("foo"), false);
+        assert.strictEqual(yield redis.has("foo"), false);
+    }));
+
+    it("should get the type of a key in the redis store", () => co(function* () {
+        assert.strictEqual(yield redis.typeof("foo"), "none");
+
+        yield redis.String.of("foo").set("Hello, World!");
+        assert.strictEqual(yield redis.typeof("foo"), "string");
+
+        yield redis.delete("foo");
+        yield redis.List.of("foo").push("Hello", "World");
+        assert.strictEqual(yield redis.typeof("foo"), "list");
+
+        yield redis.delete("foo");
+        yield redis.Set.of("foo").add("Hello", "World");
+        assert.strictEqual(yield redis.typeof("foo"), "set");
+
+        yield redis.delete("foo");
+        yield redis.SortedSet.of("foo").add("Hello", 1);
+        assert.strictEqual(yield redis.typeof("foo"), "zset");
+
+        yield redis.delete("foo");
+        yield redis.HashMap.of("foo").set("Hello", "World");
+        assert.strictEqual(yield redis.typeof("foo"), "hash");
+    }));
+
+    it("should check if a key exists as string type", () => co(function* () {
+        assert.strictEqual(yield redis.String.has("foo"), false);
+        yield redis.delete("foo");
+        yield redis.String.of("foo").set("Hello, World!");
+        assert.strictEqual(yield redis.String.has("foo"), true);
+    }));
+
+    it("should check if a key exists as list type", () => co(function* () {
+        assert.strictEqual(yield redis.List.has("foo"), false);
+        yield redis.delete("foo");
+        yield redis.List.of("foo").push("Hello", "World!");
+        assert.strictEqual(yield redis.List.has("foo"), true);
+    }));
+
+    it("should check if a key exists as set type", () => co(function* () {
+        assert.strictEqual(yield redis.Set.has("foo"), false);
+        yield redis.delete("foo");
+        yield redis.Set.of("foo").add("Hello", "World!");
+        assert.strictEqual(yield redis.Set.has("foo"), true);
+    }));
+
+    it("should check if a key exists as sorted set type", () => co(function* () {
+        assert.strictEqual(yield redis.SortedSet.has("foo"), false);
+        yield redis.delete("foo");
+        yield redis.SortedSet.of("foo").add("Hello", 1);
+        assert.strictEqual(yield redis.SortedSet.has("foo"), true);
+    }));
+
+    it("should check if a key exists as hash map type", () => co(function* () {
+        assert.strictEqual(yield redis.HashMap.has("foo"), false);
+        yield redis.delete("foo");
+        yield redis.HashMap.of("foo").set("Hello", "World!");
+        assert.strictEqual(yield redis.HashMap.has("foo"), true);
+    }));
+
+    after(() => co(function* () {
+        yield redis.delete("foo");
     }));
 });

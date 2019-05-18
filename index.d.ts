@@ -1,30 +1,43 @@
 import { RedisClient } from "redis";
 
+export const key: unique symbol;
+
 export interface RedisOperator {
     has(key: string): Promise<boolean>;
     delete(key: string): Promise<boolean>;
+    typeof(key: string): Promise<"string" | "list" | "set" | "zset" | "hash" | "none">;
+    exec(cmd: string, key: string, ...args: any[]): Promise<string | number | string[]>;
+    exec(cmd: string, ...args: any[]): Promise<string | number | string[]>;
 }
 
 export interface RedisFacade {
+    [key]: string;
     setTTL(seconds: number): Promise<void>;
     getTTL(): Promise<number>;
     clear(): Promise<void>;
+    exec(cmd: string, ...args: any[]): Promise<string | number | string[]>;
 }
 
 export interface RedisFacadeType<T> {
     readonly prototype: T;
     of(key: string): T;
+    has(key: string): Promise<boolean>;
 }
 
 export interface RedisString extends RedisFacade {
     set(value: string, ttl?: number): Promise<string>;
     get(): Promise<string>;
+    slice(start: number, end?: number): Promise<string>;
     startsWith(value: string): Promise<boolean>;
     endsWith(value: string): Promise<boolean>;
-    append(value: string): Promise<string>;
+    /**
+     * Appends specified string at the end of this string. **NOTE:** this method
+     * modifies the original string.
+     */
+    append(str: string): Promise<string>;
     increase(increment?: number): Promise<string>;
     decrease(decrement?: number): Promise<string>;
-    getLength(): Promise<number>;
+    length(): Promise<number>;
 }
 
 export interface RedisCompoundType extends RedisFacade {
@@ -43,11 +56,11 @@ export interface RedisList extends RedisCompoundType {
     splice(start: number, count?: number): Promise<string[]>;
     sort(order?: "asc" | "desc"): Promise<string[]>;
     reverse(): Promise<string[]>;
-    getLength(): Promise<number>;
+    length(): Promise<number>;
 }
 
 export interface RedisCollection extends RedisCompoundType {
-    getSize(): Promise<number>;
+    size(): Promise<number>;
 }
 
 export interface RedisSetKind extends RedisCollection {
@@ -57,6 +70,13 @@ export interface RedisSetKind extends RedisCollection {
 
 export interface RedisSet extends RedisSetKind {
     add(...values: string[]): Promise<this>;
+    pop(): Promise<string>;
+    pop(count: number): Promise<string[]>;
+    random(): Promise<string>;
+    random(count: number): Promise<string[]>;
+    difference(...sets: RedisSet[]): Promise<string[]>;
+    intersection(...sets: RedisSet[]): Promise<string[]>;
+    union(...sets: RedisSet[]): Promise<string[]>;
 }
 
 export interface RedisHashMap extends RedisCollection {
@@ -84,6 +104,10 @@ export interface RedisSortedSet extends RedisSetKind {
     increase(value: string, increment?: number): Promise<number>;
     /** Decreases the score of the specified value. */
     decrease(value: string, decrement?: number): Promise<number>;
+    pop(): Promise<string>;
+    pop(withScore: true): Promise<[string, number]>;
+    shift(): Promise<string>;
+    shift(withScore: true): Promise<[string, number]>;
     slice(start: number, end?: number): Promise<string[]>;
     splice(start: number, end?: number): Promise<string[]>;
     countBetween(minScore: number, maxScore: number): Promise<number>;

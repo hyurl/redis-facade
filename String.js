@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 
 const { RedisFacade } = require("./Facade");
-const { createFacadeCtor, isVoid, isFloat } = require("./util");
+const { createFacadeType, isVoid, isFloat } = require("./util");
 
 class RedisString extends RedisFacade {
     /**
@@ -12,9 +12,9 @@ class RedisString extends RedisFacade {
      */
     set(value, ttl) {
         if (ttl > 0) {
-            return this._emitCommand("setex", ttl, value).then(() => value);
+            return this.exec("setex", ttl, value).then(() => value);
         } else {
-            return this._emitCommand("set", value).then(() => value);
+            return this.exec("set", value).then(() => value);
         }
     }
 
@@ -22,7 +22,19 @@ class RedisString extends RedisFacade {
      * @returns {Promise<string>}
      */
     get() {
-        return this._emitCommand("get");
+        return this.exec("get");
+    }
+
+    /**
+     * @param {number} start 
+     * @param {number} end 
+     */
+    slice(start, end = undefined) {
+        return this.exec(
+            "getrange",
+            start,
+            isVoid(end) ? -1 : (end === 0 ? 0 : end - 1)
+        );
     }
 
     /**
@@ -30,9 +42,7 @@ class RedisString extends RedisFacade {
      * @returns {Promise<boolean>}
      */
     startsWith(value) {
-        return this._emitCommand("getrange", 0, value.length - 1).then(res => {
-            return res === value;
-        });
+        return this.slice(0, value.length).then(res => res === value);
     }
 
     /**
@@ -40,9 +50,7 @@ class RedisString extends RedisFacade {
      * @returns {Promise<boolean>}
      */
     endsWith(value) {
-        return this._emitCommand("getrange", -value.length, -1).then(res => {
-            return res === value;
-        });
+        return this.slice(-value.length).then(res => res === value);
     }
 
     /**
@@ -50,20 +58,20 @@ class RedisString extends RedisFacade {
      * @returns {Promise<string>}
      */
     append(value) {
-        return this._emitCommand("append", value).then(() => this.get());
+        return this.exec("append", value).then(() => this.get());
     }
 
     /**
      * @param {number} [increment]
      * @returns {Promise<string>}
      */
-    increase(increment) {
+    increase(increment = undefined) {
         if (isVoid(increment)) {
-            return this._emitCommand("incr").then(String); // type fix
+            return this.exec("incr").then(String); // type fix
         } else if (isFloat(increment)) {
-            return this._emitCommand("incrbyfloat", increment).then(String);
+            return this.exec("incrbyfloat", increment).then(String);
         } else {
-            return this._emitCommand("incrby", increment).then(String);
+            return this.exec("incrby", increment).then(String);
         }
     }
 
@@ -71,24 +79,24 @@ class RedisString extends RedisFacade {
      * @param {number} [decrement]
      * @returns {Promise<string>}
      */
-    decrease(decrement) {
+    decrease(decrement = undefined) {
         if (isVoid(decrement)) {
-            return this._emitCommand("decr").then(String); // type fix
+            return this.exec("decr").then(String); // type fix
         } else if (isFloat(decrement)) {
             // There is no 'decrbyfloat' in redis, so incrbyfloat to the
             // negative value instead.
-            return this._emitCommand("incrbyfloat", -decrement).then(String);
+            return this.exec("incrbyfloat", -decrement).then(String);
         } else {
-            return this._emitCommand("decrby", decrement).then(String);
+            return this.exec("decrby", decrement).then(String);
         }
     }
 
     /**
      * @returns {Promise<number>} 
      */
-    getLength() {
-        return this._emitCommand("strlen");
+    length() {
+        return this.exec("strlen");
     }
 }
 
-exports.default = redis => createFacadeCtor(RedisString, redis);
+exports.default = redis => createFacadeType("string", RedisString, redis);

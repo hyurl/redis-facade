@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
-const { RedisFacade } = require("./Facade");
-const { createFacadeCtor } = require("./util");
+const { RedisFacade, key } = require("./Facade");
+const { createFacadeType } = require("./util");
 
 class RedisSet extends RedisFacade {
     /**
@@ -10,7 +10,7 @@ class RedisSet extends RedisFacade {
      * @returns {Promise<this>}
      */
     add(...values) {
-        return this._emitCommand("sadd", ...values).then(() => this);
+        return this.exec("sadd", ...values).then(() => this);
     }
 
     /**
@@ -19,7 +19,7 @@ class RedisSet extends RedisFacade {
      * @returns {Promise<boolean>} 
      */
     delete(...values) {
-        return this._emitCommand("srem", ...values).then(res => res > 0);
+        return this.exec("srem", ...values).then(res => res > 0);
     }
 
     /**
@@ -27,22 +27,70 @@ class RedisSet extends RedisFacade {
      * @returns {Promise<boolean>} 
      */
     has(value) {
-        return this._emitCommand("sismember", value).then(res => res > 0);
+        return this.exec("sismember", value).then(res => res > 0);
     }
 
     /**
      * @returns {Promise<string[]>}
      */
     values() {
-        return this._emitCommand("smembers");
+        return this.exec("smembers");
     }
 
     /**
      * @returns {Promise<number>}
      */
-    getSize() {
-        return this._emitCommand("scard");
+    size() {
+        return this.exec("scard");
+    }
+
+    /**
+     * @param {number} [count]
+     * @returns {Promise<string|string[]>}
+     */
+    pop(count = 1) {
+        if (count === 1) {
+            return this.exec("spop");
+        } else {
+            return this.exec("spop", count);
+        }
+    }
+
+    /**
+     * @param {number} [count]
+     * @returns {Promise<string|string[]>}
+     */
+    random(count = 1) {
+        if (count === 1) {
+            return this.exec("srandmember");
+        } else {
+            return this.exec("srandmember", count);
+        }
+    }
+
+    /**
+     * @param  {...RedisSet} sets 
+     * @returns {Promise<string[]>}
+     */
+    difference(...sets) {
+        return this.exec("sdiff", ...sets.map(set => set[key]));
+    }
+
+    /**
+     * @param  {...RedisSet} sets 
+     * @returns {Promise<string[]>}
+     */
+    intersection(...sets) {
+        return this.exec("sinter", ...sets.map(set => set[key]));
+    }
+
+    /**
+     * @param  {...RedisSet} sets 
+     * @returns {Promise<string[]>}
+     */
+    union(...sets) {
+        return this.exec("sunion", ...sets.map(set => set[key]));
     }
 }
 
-exports.default = redis => createFacadeCtor(RedisSet, redis);
+exports.default = redis => createFacadeType("set", RedisSet, redis);

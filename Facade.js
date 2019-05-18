@@ -1,24 +1,20 @@
-const _redis = exports.redis = Symbol("RedisClient");
+const _operator = Symbol("RedisOperator");
 const _key = exports.key = Symbol("RedisDataKey");
 
 class RedisFacade {
-    constructor(redis, key) {
-        this[_redis] = redis;
+    constructor(operator, key) {
+        this[_operator] = operator;
         this[_key] = key;
     }
 
     /**
-     * 
+     * @protected
      * @param {string} cmd 
      * @param  {...any} args 
      * @returns {Promise<string|number|string[]>}
      */
-    _emitCommand(cmd, ...args) {
-        return new Promise((resolve, reject) => {
-            this[_redis][cmd](this[_key], ...args, (err, result) => {
-                err ? reject(err) : resolve(result);
-            });
-        });
+    exec(cmd, ...args) {
+        return this[_operator].exec(cmd, this[_key], ...args);
     }
 
     /**
@@ -26,14 +22,14 @@ class RedisFacade {
      * @returns {Promise<void>}
      */
     setTTL(seconds) {
-        return this._emitCommand("expire", seconds).then(() => void 0);
+        return this.exec("expire", seconds).then(() => void 0);
     }
 
     /**
      * @returns {Promise<number>}
      */
     getTTL() {
-        return this._emitCommand("ttl");
+        return this.exec("ttl");
     }
 
     /**
@@ -41,7 +37,7 @@ class RedisFacade {
      * @returns {Promise<void>}
      */
     clear() {
-        return this._emitCommand("del").then(() => void 0);
+        return this.exec("del").then(() => void 0);
     }
 }
 
