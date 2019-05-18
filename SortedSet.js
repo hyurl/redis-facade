@@ -135,9 +135,8 @@ class RedisSortedSet extends RedisFacade {
      */
     splice(start, count = 1) {
         let end = start + count;
-        let _end = (end === 0 && start < 0) ? undefined : end;
 
-        return this.slice(start, _end).then(values => {
+        return this.slice(start, end === 0 ? undefined : end).then(values => {
             return this.exec(
                 "zremrangebyrank",
                 start,

@@ -104,16 +104,8 @@ export interface RedisSortedSet extends RedisSetKind {
     increase(value: string, increment?: number): Promise<number>;
     /** Decreases the score of the specified value. */
     decrease(value: string, decrement?: number): Promise<number>;
-    /**
-     * Removes and returns the last element of the set, only available for
-     * Redis v5.0+.
-     */
     pop(): Promise<string>;
     pop(withScore: true): Promise<[string, number]>;
-    /**
-     * Removes and returns the first element of the set, only available for
-     * Redis v5.0+.
-     */
     shift(): Promise<string>;
     shift(withScore: true): Promise<[string, number]>;
     slice(start: number, end?: number): Promise<string[]>;
