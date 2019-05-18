@@ -19,9 +19,12 @@ export interface RedisFacadeType<T> {
 export interface RedisString extends RedisFacade {
     set(value: string, ttl?: number): Promise<string>;
     get(): Promise<string>;
-    getLength(): Promise<number>;
+    startsWith(value: string): Promise<boolean>;
+    endsWith(value: string): Promise<boolean>;
+    append(value: string): Promise<string>;
     increase(increment?: number): Promise<string>;
     decrease(decrement?: number): Promise<string>;
+    getLength(): Promise<number>;
 }
 
 export interface RedisCompoundType extends RedisFacade {
@@ -37,6 +40,7 @@ export interface RedisList extends RedisCompoundType {
     valueAt(index: number, value?: string): Promise<string>;
     slice(start: number, end?: number): Promise<string[]>;
     splice(start: number, count?: number): Promise<string[]>;
+    sort(order?: "asc" | "desc"): Promise<string[]>;
     reverse(): Promise<string[]>;
     getLength(): Promise<number>;
 }
@@ -60,14 +64,18 @@ export interface RedisHashMap extends RedisCollection {
     get(key: string): Promise<string>;
     has(key: string): Promise<boolean>;
     delete(key: string): Promise<boolean>;
-    increase(key: string, increment?: number): Promise<string>;
-    decrease(key: string, decrement?: number): Promise<string>;
     keys(): Promise<string[]>;
     pairs(): Promise<{ [key: string]: string }>;
+    increase(key: string, increment?: number): Promise<string>;
+    decrease(key: string, decrement?: number): Promise<string>;
 }
 
 export interface RedisSortedSet extends RedisSetKind {
     add(value: string, score: number): Promise<this>;
+    add(values: { [value: string]: number }): Promise<this>;
+    /** A synonym of `RedisSortedSet.add()`.  */
+    set(value: string, score: number): Promise<this>;
+    set(values: { [value: string]: number }): Promise<this>;
     indexOf(value: string): Promise<number>;
     scoreOf(value: string): Promise<number>;
     scores(): Promise<{ [value: string]: number }>;

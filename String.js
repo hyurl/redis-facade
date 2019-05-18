@@ -26,6 +26,34 @@ class RedisString extends RedisFacade {
     }
 
     /**
+     * @param {string} value
+     * @returns {Promise<boolean>}
+     */
+    startsWith(value) {
+        return this._emitCommand("getrange", 0, value.length - 1).then(res => {
+            return res === value;
+        });
+    }
+
+    /**
+     * @param {string} value
+     * @returns {Promise<boolean>}
+     */
+    endsWith(value) {
+        return this._emitCommand("getrange", -value.length, -1).then(res => {
+            return res === value;
+        });
+    }
+
+    /**
+     * @param {string} value 
+     * @returns {Promise<string>}
+     */
+    append(value) {
+        return this._emitCommand("append", value).then(() => this.get());
+    }
+
+    /**
      * @param {number} [increment]
      * @returns {Promise<string>}
      */

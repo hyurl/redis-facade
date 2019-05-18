@@ -6,12 +6,32 @@ const { createFacadeCtor, isVoid } = require("./util");
 
 class RedisSortedSet extends RedisFacade {
     /**
-     * @param {string} value
-     * @param {number} score
+     * @param {string|{[value: string]: number}} value
+     * @param {number} [score]
      * @returns {Promise<this>}
      */
     add(value, score) {
-        return this._emitCommand("zadd", score, value).then(() => this);
+        if (typeof value === "object") {
+            let data = [];
+
+            for (let x in value) {
+                data.push(x, value[x]);
+            }
+
+            return this._emitCommand("zadd", ...data).then(() => this);
+        } else {
+            return this._emitCommand("zadd", score, value).then(() => this);
+        }
+    }
+
+    /**
+     * A synonym of `RedisSortedSet.add()`.
+     * @param {string|{[value: string]: number}} value
+     * @param {number} [score]
+     * @returns {Promise<this>}
+     */
+    set(value, score) {
+        return this.add(value, score);
     }
 
     /**

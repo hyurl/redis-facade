@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
-const { RedisFacade } = require("./Facade");
+const { RedisFacade, key } = require("./Facade");
 const { createFacadeCtor, isVoid } = require("./util");
 
 class RedisList extends RedisFacade {
@@ -84,6 +84,15 @@ class RedisList extends RedisFacade {
                 .then(() => this.push(...values))
                 .then(() => spliced);
         });
+    }
+
+    /**
+     * @param {"asc"|"desc"} order 
+     * @returns {Promise<string[]>}
+     */
+    sort(order = "asc") {
+        return this._emitCommand("sort", "alpha", order, `store ${this[key]}`)
+            .then(() => this.values());
     }
 
     /**
