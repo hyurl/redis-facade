@@ -36,6 +36,7 @@ export interface RedisList extends RedisCompoundType {
     push(...values: string[]): Promise<number>;
     shift(): Promise<string>;
     unshift(...values: string[]): Promise<number>;
+    includes(value: string): Promise<boolean>;
     indexOf(value: string): Promise<number>;
     valueAt(index: number, value?: string): Promise<string>;
     slice(start: number, end?: number): Promise<string[]>;

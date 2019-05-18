@@ -120,6 +120,12 @@ describe("RedisList", () => {
         assert.strictEqual(yield list.unshift("Good", "Morning"), 6);
     }));
 
+    it("should check if a value exists in the list", () => co(function* () {
+        assert.strictEqual(yield list.includes("Good"), true);
+        assert.strictEqual(yield list.includes("Morning"), true);
+        assert.strictEqual(yield list.includes("Hola"), false);
+    }));
+
     it("should get the index of a value in the list", () => co(function* () {
         assert.strictEqual(yield list.indexOf("Good"), 0);
         assert.strictEqual(yield list.indexOf("Morning"), 1);
@@ -199,14 +205,14 @@ describe("RedisList", () => {
         assert.deepStrictEqual(yield list.values(), ["Ayon", "Hi", "Nice"]);
     }));
 
-    it("should sort the list in ascending order", () => () => co(function*() {
+    it("should sort the list in ascending order", () => () => co(function* () {
         assert.deepStrictEqual(yield list.sort(), ["Ayon", "Hi", "Nice"]);
         assert.deepStrictEqual(yield list.values(), ["Ayon", "Hi", "Nice"]);
         assert.deepStrictEqual(yield list.sort("asc"), ["Ayon", "Hi", "Nice"]);
         assert.deepStrictEqual(yield list.values(), ["Ayon", "Hi", "Nice"]);
     }));
 
-    it("should sort the list in descending order", () => () => co(function*() {
+    it("should sort the list in descending order", () => () => co(function* () {
         assert.deepStrictEqual(yield list.sort("desc"), ["Nice", "Hi", "Ayon"]);
         assert.deepStrictEqual(yield list.values(), ["Nice", "Hi", "Ayon"]);
     }));

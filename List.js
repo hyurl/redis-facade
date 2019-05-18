@@ -37,6 +37,14 @@ class RedisList extends RedisFacade {
 
     /**
      * @param {string} value 
+     * @returns {Promise<boolean>}
+     */
+    includes(value) {
+        return this.indexOf(value).then(index => index >= 0);
+    }
+
+    /**
+     * @param {string} value 
      * @returns {Promise<number>}
      */
     indexOf(value) {
