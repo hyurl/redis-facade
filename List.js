@@ -36,6 +36,14 @@ class RedisList extends RedisFacade {
     }
 
     /**
+     * @param {string} value 
+     * @returns {Promise<number>}
+     */
+    indexOf(value) {
+        return this.values().then(values => values.indexOf(value));
+    }
+
+    /**
      * @param {number} index 
      * @param {string} [value] 
      * @returns {Promise<string>}
@@ -44,7 +52,7 @@ class RedisList extends RedisFacade {
         if (isVoid(value)) {
             return this._emitCommand("lindex", index);
         } else {
-            return this._emitCommand("lset", index, value);
+            return this._emitCommand("lset", index, value).then(() => value);
         }
     }
 
@@ -75,6 +83,17 @@ class RedisList extends RedisFacade {
             return this.clear()
                 .then(() => this.push(...values))
                 .then(() => spliced);
+        });
+    }
+
+    /**
+     * @returns {Promise<string[]>}
+     */
+    reverse() {
+        return this.values().then(values => {
+            return this.clear().then(() => values.reverse());
+        }).then(values => {
+            return this.push(...values).then(() => values);
         });
     }
 

@@ -33,9 +33,11 @@ export interface RedisList extends RedisCompoundType {
     push(...values: string[]): Promise<number>;
     shift(): Promise<string>;
     unshift(...values: string[]): Promise<number>;
+    indexOf(value: string): Promise<number>;
     valueAt(index: number, value?: string): Promise<string>;
     slice(start: number, end?: number): Promise<string[]>;
     splice(start: number, count?: number): Promise<string[]>;
+    reverse(): Promise<string[]>;
     getLength(): Promise<number>;
 }
 
@@ -64,17 +66,26 @@ export interface RedisHashMap extends RedisCollection {
     pairs(): Promise<{ [key: string]: string }>;
 }
 
-// TODO
 export interface RedisSortedSet extends RedisSetKind {
     add(value: string, score: number): Promise<this>;
-    getScore(value: string): Promise<number>;
-    incScore(value: string, increment: number): Promise<number>;
+    indexOf(value: string): Promise<number>;
+    scoreOf(value: string): Promise<number>;
+    scores(): Promise<{ [value: string]: number }>;
+    /** Increases the score of the specified value. */
+    increase(value: string, increment?: number): Promise<number>;
+    /** Decreases the score of the specified value. */
+    decrease(value: string, decrement?: number): Promise<number>;
+    slice(start: number, end?: number): Promise<string[]>;
+    splice(start: number, end?: number): Promise<string[]>;
+    countBetween(minScore: number, maxScore: number): Promise<number>;
+    sliceBetween(minScore: number, maxScore: number): Promise<string[]>;
+    spliceBetween(minScore: number, maxScore: number): Promise<string[]>;
 }
-// TODO
 
 export default function createRedisFacade(redis: RedisClient): RedisOperator & {
     String: RedisFacadeType<RedisString>;
     List: RedisFacadeType<RedisList>;
     Set: RedisFacadeType<RedisSet>;
+    SortedSet: RedisFacadeType<RedisSortedSet>;
     HashMap: RedisFacadeType<RedisHashMap>;
 }

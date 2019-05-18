@@ -72,7 +72,7 @@ class RedisHashMap extends RedisFacade {
 
     /**
      * @param {string} key 
-     * @param {number} increment 
+     * @param {number} [increment] 
      * @returns {Promise<string>}
      */
     increase(key, increment) {
@@ -87,7 +87,7 @@ class RedisHashMap extends RedisFacade {
 
     /**
      * @param {string} key 
-     * @param {number} decrement 
+     * @param {number} [decrement] 
      * @returns {Promise<string>}
      */
     decrease(key, decrement) {

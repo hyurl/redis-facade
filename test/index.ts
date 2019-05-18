@@ -1,3 +1,4 @@
+import "source-map-support/register";
 import * as assert from "assert";
 import { createClient } from "redis";
 import createFacade from "..";
@@ -102,17 +103,30 @@ describe("RedisList", () => {
         assert.strictEqual(await list.unshift("Good", "Morning"), 6);
     });
 
-    it("should get a value at a specified index of the list", async () => {
+    it("should get the index of a value in the list", async () => {
+        assert.strictEqual(await list.indexOf("Good"), 0);
+        assert.strictEqual(await list.indexOf("Morning"), 1);
+        assert.strictEqual(await list.indexOf("Hola"), -1);
+    });
+
+    it("should get the value at a specified index of the list", async () => {
         assert.deepStrictEqual([
             await list.valueAt(0),
             await list.valueAt(1)
         ], ["Good", "Morning"]);
     });
 
+    it("should set the value at a specified index of the list", async () => {
+        assert.deepStrictEqual([
+            await list.valueAt(0, "Nice"),
+            await list.valueAt(1, "Day")
+        ], ["Nice", "Day"]);
+    });
+
     it("should get all values from the list", async () => {
         assert.deepStrictEqual(await list.values(), [
-            "Good",
-            "Morning",
+            "Nice",
+            "Day",
             "Hello",
             "World",
             "Hi",
@@ -122,7 +136,7 @@ describe("RedisList", () => {
 
     it("should slice the list with only start position", async () => {
         assert.deepStrictEqual(await list.slice(1), [
-            "Morning",
+            "Day",
             "Hello",
             "World",
             "Hi",
@@ -132,7 +146,7 @@ describe("RedisList", () => {
 
     it("should slice the list with both start and end position", async () => {
         assert.deepStrictEqual(await list.slice(1, 4), [
-            "Morning",
+            "Day",
             "Hello",
             "World"
         ]);
@@ -140,17 +154,17 @@ describe("RedisList", () => {
 
     it("should slice the list with minus end position", async () => {
         assert.deepStrictEqual(await list.slice(0, -2), [
-            "Good",
-            "Morning",
+            "Nice",
+            "Day",
             "Hello",
             "World"
         ]);
     });
 
     it("should splice a value and return it from the list", async () => {
-        assert.deepStrictEqual(await list.splice(1), ["Morning"]);
+        assert.deepStrictEqual(await list.splice(1), ["Day"]);
         assert.deepStrictEqual(await list.values(), [
-            "Good",
+            "Nice",
             "Hello",
             "World",
             "Hi",
@@ -160,7 +174,12 @@ describe("RedisList", () => {
 
     it("should splice multiple values and return them from the list", async () => {
         assert.deepStrictEqual(await list.splice(1, 2), ["Hello", "World"]);
-        assert.deepStrictEqual(await list.values(), ["Good", "Hi", "Ayon"]);
+        assert.deepStrictEqual(await list.values(), ["Nice", "Hi", "Ayon"]);
+    });
+
+    it("should reverse all values in the list", async () => {
+        assert.deepStrictEqual(await list.reverse(), ["Ayon", "Hi", "Nice"]);
+        assert.deepStrictEqual(await list.values(), ["Ayon", "Hi", "Nice"]);
     });
 
     it("should get the length of the list", async () => {
