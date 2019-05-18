@@ -3,10 +3,7 @@ const assert = require("assert");
 const { createClient } = require("redis");
 const createFacade = require("..").default;
 
-let client = createClient();
-let redis = createFacade(client);
-let redisVersion = client.server_info.redis_version;
-
+let redis = createFacade(createClient());
 /**
  * @param {number} timeout
  * @returns {Promise<void>} 
@@ -562,31 +559,29 @@ describe("RedisSortedSet", () => {
         assert.strictEqual(yield set.scoreOf("Ayon"), 4);
     }));
 
-    if (parseInt(redisVersion) >= 5) {
-        it("should pop the last value of the set", () => co(function* () {
-            assert.strictEqual(yield set.pop(), "Ayon");
-            assert.deepStrictEqual(yield set.values(), ["Hello", "World", "Hi"]);
-            yield set.add("Ayon", 4);
-        }));
+    it("should pop the last value of the set", () => co(function* () {
+        assert.strictEqual(yield set.pop(), "Ayon");
+        assert.deepStrictEqual(yield set.values(), ["Hello", "World", "Hi"]);
+        yield set.add("Ayon", 4);
+    }));
 
-        it("should pop the last value with score of the set", () => co(function* () {
-            assert.deepStrictEqual(yield set.pop(true), ["Ayon", 4]);
-            assert.deepStrictEqual(yield set.values(), ["Hello", "World", "Hi"]);
-            yield set.add("Ayon", 4);
-        }));
+    it("should pop the last value with score of the set", () => co(function* () {
+        assert.deepStrictEqual(yield set.pop(true), ["Ayon", 4]);
+        assert.deepStrictEqual(yield set.values(), ["Hello", "World", "Hi"]);
+        yield set.add("Ayon", 4);
+    }));
 
-        it("should shift the last value of the set", () => co(function* () {
-            assert.strictEqual(yield set.shift(), "Hello");
-            assert.deepStrictEqual(yield set.values(), ["World", "Hi", "Ayon"]);
-            yield set.add("Hello", 1);
-        }));
+    it("should shift the last value of the set", () => co(function* () {
+        assert.strictEqual(yield set.shift(), "Hello");
+        assert.deepStrictEqual(yield set.values(), ["World", "Hi", "Ayon"]);
+        yield set.add("Hello", 1);
+    }));
 
-        it("should shift the last value with score of the set", () => co(function* () {
-            assert.deepStrictEqual(yield set.shift(true), ["Hello", 1]);
-            assert.deepStrictEqual(yield set.values(), ["World", "Hi", "Ayon"]);
-            yield set.add("Hello", 1);
-        }));
-    }
+    it("should shift the last value with score of the set", () => co(function* () {
+        assert.deepStrictEqual(yield set.shift(true), ["Hello", 1]);
+        assert.deepStrictEqual(yield set.values(), ["World", "Hi", "Ayon"]);
+        yield set.add("Hello", 1);
+    }));
 
     it("should slice the set with only start argument", () => co(function* () {
         assert.deepStrictEqual(yield set.slice(1), ["World", "Hi", "Ayon"]);

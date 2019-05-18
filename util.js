@@ -29,7 +29,7 @@ exports.createRedisOperator = (redis) => {
  */
 exports.createFacadeType = (type, ctor, redis) => {
     let operator = exports.createRedisOperator(redis);
-    let facade = ctor.bind(void 0, operator);
+    let facade = ctor.bind(void 0, operator, redis);
 
     Object.defineProperty(facade, "prototype", {
         value: type.prototype

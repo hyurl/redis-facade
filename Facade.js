@@ -1,9 +1,11 @@
 const _operator = Symbol("RedisOperator");
 const _key = exports.key = Symbol("RedisDataKey");
+const _redis = exports.redis = Symbol("RedisClient");
 
 class RedisFacade {
-    constructor(operator, key) {
+    constructor(operator, redis, key) {
         this[_operator] = operator;
+        this[_redis] = redis;
         this[_key] = key;
     }
 

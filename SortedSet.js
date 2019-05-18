@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
-const { RedisFacade } = require("./Facade");
+const { RedisFacade, redis } = require("./Facade");
 const { createFacadeType, isVoid } = require("./util");
 
 class RedisSortedSet extends RedisFacade {
@@ -74,9 +74,23 @@ class RedisSortedSet extends RedisFacade {
      * @returns {Promise<string|[string, number]>}
      */
     pop(withScores = false) {
-        return this.exec("zpopmax").then(([value, score]) => {
-            return withScores ? [value, Number(score)] : value;
-        });
+        if (parseInt(this[redis].server_info.redis_version) < 5) {
+            if (withScores) {
+                return this.exec("zrange", -1, -1, "withscores")
+                    .then(([value, score]) => {
+                        return this.delete(value)
+                            .then(() => [value, Number(score)]);
+                    });
+            } else {
+                return this.splice(-1).then(([value]) => {
+                    return value;
+                });
+            }
+        } else {
+            return this.exec("zpopmax").then(([value, score]) => {
+                return withScores ? [value, Number(score)] : value;
+            });
+        }
     }
 
     /**
@@ -84,9 +98,21 @@ class RedisSortedSet extends RedisFacade {
      * @returns {Promise<string|[string, number]>}
      */
     shift(withScores = false) {
-        return this.exec("zpopmin").then(([value, score]) => {
-            return withScores ? [value, Number(score)] : value;
-        });
+        if (parseInt(this[redis].server_info.redis_version) < 5) {
+            if (withScores) {
+                return this.exec("zrange", 0, 0, "withscores")
+                    .then(([value, score]) => {
+                        return this.delete(value)
+                            .then(() => [value, Number(score)]);
+                    });
+            } else {
+                return this.splice(0, 1).then(([value]) => value);
+            }
+        } else {
+            return this.exec("zpopmin").then(([value, score]) => {
+                return withScores ? [value, Number(score)] : value;
+            });
+        }
     }
 
     /**
@@ -109,7 +135,9 @@ class RedisSortedSet extends RedisFacade {
      */
     splice(start, count = 1) {
         let end = start + count;
-        return this.slice(start, end).then(values => {
+        let _end = (end === 0 && start < 0) ? undefined : end;
+
+        return this.slice(start, _end).then(values => {
             return this.exec(
                 "zremrangebyrank",
                 start,
