@@ -234,8 +234,7 @@ describe("RedisSet", () => {
     }));
 
     it("should get the size of the set", () => co(function*() {
-        yield set.add("Hello");
-        yield set.add("World");
+        yield set.add("Hello", "World");
         assert.strictEqual(yield set.getSize(), 2);
     }));
 

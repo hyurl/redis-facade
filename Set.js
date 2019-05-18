@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 
-const { RedisFacade, redis } = require("./Facade");
+const { RedisFacade } = require("./Facade");
 const { createFacadeCtor } = require("./util");
 
 class RedisSet extends RedisFacade {
@@ -34,16 +34,7 @@ class RedisSet extends RedisFacade {
      * @returns {Promise<string[]>}
      */
     values() {
-        return this._emitCommand("smembers").then(values => {
-            // Redis v4.X and lower versions add new values to the head of the
-            // set, when retrieving members of the set, we need to reverse them
-            // explicitly
-            if (parseInt(this[redis].server_info.redis_version) <= 4) {
-                return values.reverse();
-            } else {
-                return values;
-            }
-        });
+        return this._emitCommand("smembers");
     }
 
     /**
