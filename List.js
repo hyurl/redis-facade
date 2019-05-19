@@ -87,11 +87,12 @@ class RedisList extends RedisFacade {
     /**
      * @param {number} start 
      * @param {number} [count]
+     * @param {...string} [items]
      * @returns {Promise<string[]>} 
      */
-    splice(start, count = 1) {
+    splice(start, count = 1, ...items) {
         return this.values().then(values => {
-            let spliced = values.splice(start, count);
+            let spliced = values.splice(start, count, ...items);
             return this.clear()
                 .then(() => this.push(...values))
                 .then(() => spliced);
@@ -99,12 +100,16 @@ class RedisList extends RedisFacade {
     }
 
     /**
-     * @param {"asc"|"desc"} [order]
+     * @param {1|-1} [order]
      * @returns {Promise<string[]>}
      */
-    sort(order = "asc") {
-        return this.exec("sort", "alpha", order, `store ${this[key]}`)
-            .then(() => this.values());
+    sort(order = 1) {
+        return this.exec(
+            "sort",
+            "alpha",
+            order >= 0 ? "asc" : "desc",
+            `store ${this[key]}`
+        ).then(() => this.values());
     }
 
     /**

@@ -89,7 +89,7 @@ describe("RedisString", () => {
 
     it("should set TTL after set the value", () => co(function* () {
         yield str.set("Hello, World!");
-        yield str.setTTL(1);
+        assert.strictEqual(yield str.setTTL(1), 1);
         yield sleep(1005);
         assert.strictEqual(yield redis.has("foo"), false);
     }));
@@ -221,6 +221,12 @@ describe("RedisList", () => {
         assert.deepStrictEqual(yield list.values(), ["Nice", "Hi", "Ayon"]);
     }));
 
+    it("should splice values and insert new values into the list", () => co(function* () {
+        assert.deepStrictEqual(yield list.splice(1, 1, "Day", "Hello"), ["Hi"]);
+        assert.deepStrictEqual(yield list.values(), ["Nice", "Day", "Hello", "Ayon"]);
+        yield list.splice(1, 2, "Hi");
+    }));
+
     it("should reverse all values in the list", () => co(function* () {
         assert.deepStrictEqual(yield list.reverse(), ["Ayon", "Hi", "Nice"]);
         assert.deepStrictEqual(yield list.values(), ["Ayon", "Hi", "Nice"]);
@@ -229,12 +235,12 @@ describe("RedisList", () => {
     it("should sort the list in ascending order", () => () => co(function* () {
         assert.deepStrictEqual(yield list.sort(), ["Ayon", "Hi", "Nice"]);
         assert.deepStrictEqual(yield list.values(), ["Ayon", "Hi", "Nice"]);
-        assert.deepStrictEqual(yield list.sort("asc"), ["Ayon", "Hi", "Nice"]);
+        assert.deepStrictEqual(yield list.sort(1), ["Ayon", "Hi", "Nice"]);
         assert.deepStrictEqual(yield list.values(), ["Ayon", "Hi", "Nice"]);
     }));
 
     it("should sort the list in descending order", () => () => co(function* () {
-        assert.deepStrictEqual(yield list.sort("desc"), ["Nice", "Hi", "Ayon"]);
+        assert.deepStrictEqual(yield list.sort(-1), ["Nice", "Hi", "Ayon"]);
         assert.deepStrictEqual(yield list.values(), ["Nice", "Hi", "Ayon"]);
     }));
 
@@ -670,6 +676,10 @@ describe("RedisOperator & RedisFacadeType", () => {
         yield redis.delete("foo");
         yield redis.HashMap.of("foo").set("Hello", "World");
         assert.strictEqual(yield redis.typeof("foo"), "hash");
+    }));
+
+    it("should execute a redis command", () => co(function* () {
+        assert.strictEqual(yield redis.exec("type", "foo"), "hash");
     }));
 
     it("should check if a key exists as string type", () => co(function* () {

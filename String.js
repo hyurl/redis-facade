@@ -38,27 +38,27 @@ class RedisString extends RedisFacade {
     }
 
     /**
-     * @param {string} value
+     * @param {string} str
      * @returns {Promise<boolean>}
      */
-    startsWith(value) {
-        return this.slice(0, value.length).then(res => res === value);
+    startsWith(str) {
+        return this.slice(0, str.length).then(res => res === str);
     }
 
     /**
-     * @param {string} value
+     * @param {string} str
      * @returns {Promise<boolean>}
      */
-    endsWith(value) {
-        return this.slice(-value.length).then(res => res === value);
+    endsWith(str) {
+        return this.slice(-str.length).then(res => res === str);
     }
 
     /**
-     * @param {string} value 
+     * @param {string} str 
      * @returns {Promise<string>}
      */
-    append(value) {
-        return this.exec("append", value).then(() => this.get());
+    append(str) {
+        return this.exec("append", str).then(() => this.get());
     }
 
     /**

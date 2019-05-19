@@ -5,20 +5,26 @@ exports.isVoid = (value) => value === null || value === undefined;
 
 exports.isFloat = (num) => typeof num === "number" && num % 1 !== 0;
 
-exports.createRedisOperator = (redis) => {
-    let exec = (cmd, ...args) => {
-        return new Promise((resolve, reject) => {
-            redis[cmd](...args, (err, res) => {
-                err ? reject(err) : resolve(res);
-            });
-        });
-    };
+exports.isRedisV5 = (redis) => parseInt(redis.server_info.redis_version) >= 5;
 
+function exec(cmd, ...args) {
+    return new Promise((resolve, reject) => {
+        this[cmd](...args, (err, res) => {
+            err ? reject(err) : resolve(res);
+        });
+    });
+}
+exports.exec = exec;
+
+/**
+ * @returns {{[op: string]: (...args) => Promise<string|number|string[]>}}
+ */
+exports.createRedisOperator = (redis) => {
     return {
-        has: (key) => exec("exists", key).then(res => res > 0),
-        delete: (key) => exec("del", key).then(res => res > 0),
-        typeof: (key) => exec("type", key),
-        exec
+        has: (key) => exec.call(redis, "exists", key).then(res => res > 0),
+        delete: (key) => exec.call(redis, "del", key).then(res => res > 0),
+        typeof: (key) => exec.call(redis, "type", key),
+        exec: exec.bind(redis)
     };
 };
 
@@ -28,8 +34,10 @@ exports.createRedisOperator = (redis) => {
  * @returns {Function}
  */
 exports.createFacadeType = (type, ctor, redis) => {
-    let operator = exports.createRedisOperator(redis);
-    let facade = ctor.bind(void 0, operator, redis);
+    // Creates a wrapped constructor to prevent conflict, so that every time
+    // calling `createFacadeType` with a new redis connection will refer to the
+    // new constructor.
+    let facade = ctor.bind(void 0, redis);
 
     Object.defineProperty(facade, "prototype", {
         value: type.prototype
@@ -40,7 +48,7 @@ exports.createFacadeType = (type, ctor, redis) => {
     };
 
     facade.has = function (key) {
-        return operator.typeof(key).then(res => res === type);
+        return exec.call(redis, "type", key).then(res => res === type);
     };
 
     return facade;

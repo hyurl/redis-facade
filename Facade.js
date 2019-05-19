@@ -1,10 +1,10 @@
-const _operator = Symbol("RedisOperator");
+const { exec } = require("./util");
+
 const _key = exports.key = Symbol("RedisDataKey");
 const _redis = exports.redis = Symbol("RedisClient");
 
 class RedisFacade {
-    constructor(operator, redis, key) {
-        this[_operator] = operator;
+    constructor(redis, key) {
         this[_redis] = redis;
         this[_key] = key;
     }
@@ -16,15 +16,15 @@ class RedisFacade {
      * @returns {Promise<string|number|string[]>}
      */
     exec(cmd, ...args) {
-        return this[_operator].exec(cmd, this[_key], ...args);
+        return exec.call(this[_redis], cmd, this[_key], ...args);
     }
 
     /**
      * @param {number} seconds 
-     * @returns {Promise<void>}
+     * @returns {Promise<number>}
      */
     setTTL(seconds) {
-        return this.exec("expire", seconds).then(() => void 0);
+        return this.exec("expire", seconds).then(res => res > 0 ? seconds : -1);
     }
 
     /**
