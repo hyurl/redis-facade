@@ -142,20 +142,20 @@ describe("RedisList", () => {
         assert.strictEqual(yield list.includes("Hola"), false);
     }));
 
-    it("should get the index of a value in the list", () => co(function* () {
+    it("should get the index of a value", () => co(function* () {
         assert.strictEqual(yield list.indexOf("Good"), 0);
         assert.strictEqual(yield list.indexOf("Morning"), 1);
         assert.strictEqual(yield list.indexOf("Hola"), -1);
     }));
 
-    it("should get the value at a specified index of the list", () => co(function* () {
+    it("should get the value at a specified index", () => co(function* () {
         assert.deepStrictEqual([
             yield list.valueAt(0),
             yield list.valueAt(1)
         ], ["Good", "Morning"]);
     }));
 
-    it("should set the value at a specified index of the list", () => co(function* () {
+    it("should set the value at a specified index", () => co(function* () {
         assert.deepStrictEqual([
             yield list.valueAt(0, "Nice"),
             yield list.valueAt(1, "Day")
@@ -621,8 +621,11 @@ describe("RedisSortedSet", () => {
         yield set.add({ "World": 2, "Hi": 3 });
     }));
 
-    it("should count the number between two scores of the set", () => co(function* () {
+    it("should count the elements with a given score in the set", () => co(function* () {
         assert.strictEqual(yield set.countByScore(1), 1);
+    }));
+
+    it("should count the elements between two scores of the set", () => co(function* () {
         assert.strictEqual(yield set.countByScore(1, 4), 4);
         assert.strictEqual(yield set.countByScore(2, 3), 2);
     }));

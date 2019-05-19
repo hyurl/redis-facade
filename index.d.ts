@@ -8,7 +8,7 @@ export interface RedisOperator {
     has(key: string): Promise<boolean>;
     /** Deletes a key from the Redis store. */
     delete(key: string): Promise<boolean>;
-    /** Returns the data type of the key in Redis store. */
+    /** Returns the data type of a key in Redis store. */
     typeof(key: string): Promise<"string" | "list" | "set" | "zset" | "hash" | "none">;
     /** Executes a Redis command on a key along with optional arguments. */
     exec(cmd: string, key: string, ...args: any[]): Promise<string | number | string[]>;
@@ -84,11 +84,11 @@ export interface RedisList extends RedisCompoundType {
     unshift(...values: string[]): Promise<number>;
     /** Checks if a value exists in the list. */
     includes(value: string): Promise<boolean>;
-    /** Gets the index of the target element in the list. */
+    /** Gets the index of the target element. */
     indexOf(value: string): Promise<number>;
     /**
-     * Gets and sets the value at the given index of the list, the index must
-     * exist before modifying its value.
+     * Gets and sets the value at the given index, the index must exist before
+     * modifying its value.
      */
     valueAt(index: number, value?: string): Promise<string>;
     /** Extracts and returns a section of the list without modification. */
@@ -156,9 +156,9 @@ export interface RedisSet extends RedisSetKind {
 export interface RedisHashMap extends RedisCollection {
     /** Sets a value to a key in the map. */
     set(key: string, value: string): Promise<this>;
-    /** Sets multiple key-value pairs into the map. */
+    /** Sets multiple key-value pairs in the map. */
     set(pairs: { [key: string]: string }): Promise<this>;
-    /** Gets a value according to the key from the map. */
+    /** Gets a value according to the key of the map. */
     get(key: string): Promise<string>;
     /** Checks if a key exists in the map. */
     has(key: string): Promise<boolean>;
@@ -186,29 +186,24 @@ export interface RedisSortedSet extends RedisSetKind {
      * the elements and values are their scores.
      */
     add(values: { [value: string]: number }): Promise<this>;
-    /**
-     * Gets the index of an element in the set, elements are sorted by their
-     * scores.
-     */
+    /** Gets the index of an element, elements are sorted by their scores. */
     indexOf(value: string): Promise<number>;
-    /** Gets the score of an element in the set. */
+    /** Gets the score of an element. */
     scoreOf(value: string): Promise<number>;
     scores(): Promise<{ [value: string]: number }>;
     /**
-     * Increases the score of the an element in the set, and adds the element
-     * with the `increment` as its score if it does not exist, returns the new
-     * score.
+     * Increases the score of the an element, and adds the element with the 
+     * `increment` as its score if it does not exist, returns the new score.
      */
     increase(value: string, increment?: number): Promise<number>;
     /**
-     * Decreases the score of the an element in the set, and adds the element 
-     * with the `increment` as its score if it does not exist, returns the new
-     * score.
+     * Decreases the score of the an element, and adds the element with the 
+     * `increment` as its score if it does not exist, returns the new score.
      */
     decrease(value: string, decrement?: number): Promise<number>;
     /**
-     * Sets the score of an element in the set, and adds the the element if it
-     * does not exist, returns the setting score.
+     * Sets the score of an element, and adds the the element if it does not
+     * exist, returns the setting score.
      */
     set(value: string, score: number): Promise<number>;
     /**
@@ -239,8 +234,10 @@ export interface RedisSortedSet extends RedisSetKind {
      * @param count Number of elements to be deleted, `1` by default
      */
     splice(start: number, count?: number): Promise<string[]>;
-    /** Gets the number of count between the minimum and maximum scores. */
-    countByScore(minScore: number, maxScore?: number): Promise<number>;
+    /** Gets the number of elements with the specified scores. */
+    countByScore(score: number): Promise<number>;
+    /** Gets the number of elements between the minimum and maximum scores. */
+    countByScore(minScore: number, maxScore: number): Promise<number>;
     /**
      * Extracts and returns a section of the set between the minimum and maximum
      * (included) scores without modification.
