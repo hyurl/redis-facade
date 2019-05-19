@@ -10,7 +10,7 @@ class RedisSortedSet extends RedisFacade {
      * @param {number} [score]
      * @returns {Promise<this>}
      */
-    add(value, score = undefined) {
+    add(value, score = 0) {
         if (typeof value === "object") {
             let data = [];
 
@@ -20,18 +20,8 @@ class RedisSortedSet extends RedisFacade {
 
             return this.exec("zadd", ...data).then(() => this);
         } else {
-            return this.exec("zadd", score, value).then(() => this);
+            return this.set(value, score).then(() => this);
         }
-    }
-
-    /**
-     * A synonym of `RedisSortedSet.add()`.
-     * @param {string|{[value: string]: number}} value
-     * @param {number} [score]
-     * @returns {Promise<this>}
-     */
-    set(value, score = undefined) {
-        return this.add(value, score);
     }
 
     /**
@@ -194,6 +184,15 @@ class RedisSortedSet extends RedisFacade {
     }
 
     /**
+     * @param {string} value
+     * @param {number} score
+     * @returns {Promise<number>}
+     */
+    set(value, score) {
+        return this.exec("zadd", score, value).then(() => score);
+    }
+
+    /**
      * @returns {Promise<number>}
      */
     size() {
@@ -202,10 +201,11 @@ class RedisSortedSet extends RedisFacade {
 
     /**
      * @param {number} minScore 
-     * @param {number} maxScore 
+     * @param {number} [maxScore] 
      * @returns {Promise<number>}
      */
-    countBetween(minScore, maxScore) {
+    countByScore(minScore, maxScore = undefined) {
+        isVoid(maxScore) && (maxScore = minScore);
         return this.exec("zcount", minScore, maxScore);
     }
 
@@ -214,7 +214,7 @@ class RedisSortedSet extends RedisFacade {
      * @param {number} maxScore 
      * @returns {Promise<string[]>}
      */
-    sliceBetween(minScore, maxScore) {
+    sliceByScore(minScore, maxScore) {
         return this.exec("zrangebyscore", minScore, maxScore);
     }
 
@@ -223,8 +223,8 @@ class RedisSortedSet extends RedisFacade {
      * @param {number} maxScore 
      * @returns {Promise<string[]>}
      */
-    spliceBetween(minScore, maxScore) {
-        return this.sliceBetween(minScore, maxScore).then(values => {
+    spliceByScore(minScore, maxScore) {
+        return this.sliceByScore(minScore, maxScore).then(values => {
             return this.exec(
                 "zremrangebyscore",
                 minScore,

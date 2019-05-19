@@ -482,12 +482,12 @@ describe("RedisSortedSet", () => {
     let set = redis.SortedSet.of("foo");
 
     it("should add a value into the set", () => co(function* () {
-        assert.strictEqual(yield set.add("Hello", 1), set);
+        assert.strictEqual(yield set.add("Hello"), set);
+        assert.strictEqual(yield set.add("World", 2), set);
     }));
 
     it("should add multiple values into the set", () => co(function* () {
         assert.strictEqual(yield set.add({
-            "World": 2,
             "Hi": 3,
             "Ayon": 4
         }), set);
@@ -540,7 +540,7 @@ describe("RedisSortedSet", () => {
     }));
 
     it("should set the score of a value in the set", () => co(function* () {
-        assert.strictEqual(yield set.set("Ayon", 10), set);
+        assert.strictEqual(yield set.set("Ayon", 10), 10);
         assert.strictEqual(yield set.scoreOf("Ayon"), 10);
         yield set.set("Ayon", 4);
     }));
@@ -622,17 +622,18 @@ describe("RedisSortedSet", () => {
     }));
 
     it("should count the number between two scores of the set", () => co(function* () {
-        assert.strictEqual(yield set.countBetween(1, 4), 4);
-        assert.strictEqual(yield set.countBetween(2, 3), 2);
+        assert.strictEqual(yield set.countByScore(1), 1);
+        assert.strictEqual(yield set.countByScore(1, 4), 4);
+        assert.strictEqual(yield set.countByScore(2, 3), 2);
     }));
 
     it("should slice values between two scores of the set", () => co(function* () {
-        assert.deepStrictEqual(yield set.sliceBetween(2, 3), ["World", "Hi"]);
+        assert.deepStrictEqual(yield set.sliceByScore(2, 3), ["World", "Hi"]);
         assert.deepStrictEqual(yield set.values(), ["Hello", "World", "Hi", "Ayon"]);
     }));
 
     it("should splice values between two scores of the set", () => co(function* () {
-        assert.deepStrictEqual(yield set.spliceBetween(2, 3), ["World", "Hi"]);
+        assert.deepStrictEqual(yield set.spliceByScore(2, 3), ["World", "Hi"]);
         assert.deepStrictEqual(yield set.values(), ["Hello", "Ayon"]);
     }));
 

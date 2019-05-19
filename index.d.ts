@@ -175,16 +175,17 @@ export interface RedisHashMap extends RedisCollection {
 }
 
 export interface RedisSortedSet extends RedisSetKind {
-    /** Adds a new element into the set with a specified score. */
-    add(value: string, score: number): Promise<this>;
+    /**
+     * Adds a new element into the set, if `score` is omitted, elements will be
+     * sorted alphabetically; if the element already exists, change its score 
+     * instead.
+     */
+    add(value: string, score?: number): Promise<this>;
     /**
      * Adds multiple elements into the set with a key-value pair where keys are
      * the elements and values are their scores.
      */
     add(values: { [value: string]: number }): Promise<this>;
-    /** A synonym of `RedisSortedSet.add()`.  */
-    set(value: string, score: number): Promise<this>;
-    set(values: { [value: string]: number }): Promise<this>;
     /**
      * Gets the index of an element in the set, elements are sorted by their
      * scores.
@@ -193,10 +194,23 @@ export interface RedisSortedSet extends RedisSetKind {
     /** Gets the score of an element in the set. */
     scoreOf(value: string): Promise<number>;
     scores(): Promise<{ [value: string]: number }>;
-    /** Increases the score of the specified value in the set. */
+    /**
+     * Increases the score of the an element in the set, and adds the element
+     * with the `increment` as its score if it does not exist, returns the new
+     * score.
+     */
     increase(value: string, increment?: number): Promise<number>;
-    /** Decreases the score of the specified value in the set. */
+    /**
+     * Decreases the score of the an element in the set, and adds the element 
+     * with the `increment` as its score if it does not exist, returns the new
+     * score.
+     */
     decrease(value: string, decrement?: number): Promise<number>;
+    /**
+     * Sets the score of an element in the set, and adds the the element if it
+     * does not exist, returns the setting score.
+     */
+    set(value: string, score: number): Promise<number>;
     /**
      * Removes and returns the last element of set, elements are sorted by their
      * scores.
@@ -226,17 +240,17 @@ export interface RedisSortedSet extends RedisSetKind {
      */
     splice(start: number, count?: number): Promise<string[]>;
     /** Gets the number of count between the minimum and maximum scores. */
-    countBetween(minScore: number, maxScore: number): Promise<number>;
+    countByScore(minScore: number, maxScore?: number): Promise<number>;
     /**
      * Extracts and returns a section of the set between the minimum and maximum
      * (included) scores without modification.
      */
-    sliceBetween(minScore: number, maxScore: number): Promise<string[]>;
+    sliceByScore(minScore: number, maxScore: number): Promise<string[]>;
     /**
      * Removes and returns elements from the set between the minimum and maximum
      * (included) scores without modification.
      */
-    spliceBetween(minScore: number, maxScore: number): Promise<string[]>;
+    spliceByScore(minScore: number, maxScore: number): Promise<string[]>;
 }
 
 export default function createRedisFacade(redis: RedisClient): RedisOperator & {
