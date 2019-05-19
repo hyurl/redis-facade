@@ -1,7 +1,20 @@
-import { RedisClient } from "redis";
+import createStringFacade from "./String";
+import createListFacade from "./List";
+import createSetFacade from "./Set";
+import createSortedSetFacade from "./SortedSet";
+import createHashMapFacade from "./HashMap";
+import { createRedisOperator, RedisReply } from "./util";
+import { RedisClient } from 'redis';
 
-export const redis: unique symbol;
-export const key: unique symbol;
+export default function createRedisFacade(redis: RedisClient) {
+    return Object.assign({
+        String: createStringFacade(redis),
+        List: createListFacade(redis),
+        HashMap: createHashMapFacade(redis),
+        Set: createSetFacade(redis),
+        SortedSet: createSortedSetFacade(redis)
+    }, createRedisOperator(redis));
+}
 
 export interface RedisOperator {
     /** Checks if a key exists in the Redis store. */
@@ -11,15 +24,12 @@ export interface RedisOperator {
     /** Returns the data type of a key in Redis store. */
     typeof(key: string): Promise<"string" | "list" | "set" | "zset" | "hash" | "none">;
     /** Executes a Redis command on a key along with optional arguments. */
-    exec(cmd: string, key: string, ...args: any[]): Promise<string | number | string[]>;
+    exec<T = RedisReply>(cmd: string, key: string, ...args: any[]): Promise<T>;
     /** Executes a Redis command related to the Redis server itself. */
-    exec(cmd: string, ...args: any[]): Promise<string>;
+    exec<T = string>(cmd: string, ...args: any[]): Promise<T>;
 }
 
 export interface RedisFacade {
-    [redis]: RedisClient;
-    /** A key in the Redis store that this instance binds to. */
-    [key]: string;
     /** Sets Time-To-Live on the current key in seconds. */
     setTTL(seconds: number): Promise<number>;
     /** Gets Time-To-Live on the current key in seconds. */
@@ -28,6 +38,8 @@ export interface RedisFacade {
     clear(): Promise<void>;
     /** Executes a Redis command on the current key with optional arguments. */
     exec(cmd: string, ...args: any[]): Promise<string | number | string[]>;
+    /** Checks if the current facade equals to another one. */
+    equals(another: RedisFacade): boolean;
 }
 
 export interface RedisFacadeType<T> {
@@ -69,7 +81,7 @@ export interface RedisString extends RedisFacade {
 }
 
 export interface RedisCompoundType extends RedisFacade {
-    /** Returns all the values in the instance. */
+    /** Returns all the values in the collection. */
     values(): Promise<string[]>;
 }
 
@@ -99,11 +111,13 @@ export interface RedisList extends RedisCompoundType {
      * @param count Number of elements to be deleted, `1` by default.
      * @param items New elements to be inserted.
      */
-    splice(start: number, count?: number, ...items?: string[]): Promise<string[]>;
+    splice(start: number, count?: number, ...items: string[]): Promise<string[]>;
     /** Sorts the list in ascending (`1`, default) or descending (`-1`) order. */
     sort(order?: 1 | -1): Promise<string[]>;
     /** Reverses the order of the list. */
     reverse(): Promise<string[]>;
+    /** Iterates all elements in the list. */
+    forEach(fn: (value: string, index: number) => void, thisArg?: any): Promise<void>;
     /** Gets the length of the list. */
     length(): Promise<number>;
 }
@@ -111,6 +125,29 @@ export interface RedisList extends RedisCompoundType {
 export interface RedisCollection extends RedisCompoundType {
     /** Gets the size of the collection. */
     size(): Promise<number>;
+}
+
+export interface RedisHashMap extends RedisCollection {
+    /** Sets a value to a key in the map. */
+    set(key: string, value: string): Promise<this>;
+    /** Sets multiple key-value pairs in the map. */
+    set(pairs: { [key: string]: string }): Promise<this>;
+    /** Gets a value according to the key of the map. */
+    get(key: string): Promise<string>;
+    /** Checks if a key exists in the map. */
+    has(key: string): Promise<boolean>;
+    /** Deletes a key and its value from the map. */
+    delete(key: string): Promise<boolean>;
+    /** Returns all the keys of the map. */
+    keys(): Promise<string[]>;
+    /** Iterates all elements in the collection. */
+    forEach(fn: (value: string, key: string) => void, thisArg?: any): Promise<void>;
+    /** Returns all key-value pairs of the map. */
+    getAll(): Promise<{ [key: string]: string }>;
+    /** Increases a key's value if it's a numeric string. */
+    increase(key: string, increment?: number): Promise<string>;
+    /** Decreases a key's value if it's a numeric string. */
+    decrease(key: string, decrement?: number): Promise<string>;
 }
 
 export interface RedisSetKind extends RedisCollection {
@@ -126,6 +163,8 @@ export interface RedisSet extends RedisSetKind {
      * placed in the set is not guaranteed.
      */
     add(...values: string[]): Promise<this>;
+    /** Iterates all elements in the collection. */
+    forEach(fn: (value: string) => void, thisArg?: any): Promise<void>;
     /** Removes and returns a random element from the set. */
     pop(): Promise<string>;
     /**
@@ -153,27 +192,6 @@ export interface RedisSet extends RedisSetKind {
     union(...sets: RedisSet[]): Promise<string[]>;
 }
 
-export interface RedisHashMap extends RedisCollection {
-    /** Sets a value to a key in the map. */
-    set(key: string, value: string): Promise<this>;
-    /** Sets multiple key-value pairs in the map. */
-    set(pairs: { [key: string]: string }): Promise<this>;
-    /** Gets a value according to the key of the map. */
-    get(key: string): Promise<string>;
-    /** Checks if a key exists in the map. */
-    has(key: string): Promise<boolean>;
-    /** Deletes a key and its value from the map. */
-    delete(key: string): Promise<boolean>;
-    /** Returns all the keys of the map. */
-    keys(): Promise<string[]>;
-    /** Returns all key-value pairs of the map. */
-    pairs(): Promise<{ [key: string]: string }>;
-    /** Increases a key's value if it's a numeric string. */
-    increase(key: string, increment?: number): Promise<string>;
-    /** Decreases a key's value if it's a numeric string. */
-    decrease(key: string, decrement?: number): Promise<string>;
-}
-
 export interface RedisSortedSet extends RedisSetKind {
     /**
      * Adds a new element into the set, if `score` is omitted, elements will be
@@ -191,6 +209,8 @@ export interface RedisSortedSet extends RedisSetKind {
     /** Gets the score of an element. */
     scoreOf(value: string): Promise<number>;
     scores(): Promise<{ [value: string]: number }>;
+    /** Iterates all elements in the list. */
+    forEach(fn: (value: string, score: number) => void, thisArg?: any): Promise<void>;
     /**
      * Increases the score of the an element, and adds the element with the 
      * `increment` as its score if it does not exist, returns the new score.
@@ -248,12 +268,4 @@ export interface RedisSortedSet extends RedisSetKind {
      * (included) scores without modification.
      */
     spliceByScore(minScore: number, maxScore: number): Promise<string[]>;
-}
-
-export default function createRedisFacade(redis: RedisClient): RedisOperator & {
-    String: RedisFacadeType<RedisString>;
-    List: RedisFacadeType<RedisList>;
-    Set: RedisFacadeType<RedisSet>;
-    SortedSet: RedisFacadeType<RedisSortedSet>;
-    HashMap: RedisFacadeType<RedisHashMap>;
 }

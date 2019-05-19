@@ -1,9 +1,9 @@
 {
   "name": "redis-facade",
   "version": "1.0.0",
-  "description": "A toolset to convert redis types to js types.",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "description": "Manipulates redis data in javascript style.",
+  "main": "dist/index.js",
+  "types": "src/index.ts",
   "scripts": {
     "test": "mocha test --exit"
   },
@@ -17,7 +17,8 @@
   "keywords": [
     "redis",
     "toolset",
-    "utils"
+    "utils",
+    "javascript"
   ],
   "author": "Ayon Lee <i@hyurl.com>",
   "license": "MIT",
@@ -26,7 +27,8 @@
   },
   "homepage": "https://github.com/hyurl/redis-facade#readme",
   "dependencies": {
-    "@types/redis": "^2.8.12"
+    "@types/redis": "^2.8.12",
+    "tslib": "^1.9.3"
   },
   "devDependencies": {
     "co": "^4.6.0",

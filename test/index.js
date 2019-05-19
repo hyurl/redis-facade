@@ -445,7 +445,7 @@ describe("RedisHashMap", () => {
     }));
 
     it("should get all key-value pairs of the map", () => co(function* () {
-        assert.deepStrictEqual(yield map.pairs(), {
+        assert.deepStrictEqual(yield map.getAll(), {
             greet: "Hello, World!",
             answer: "Hi, Ayon!"
         });
@@ -469,7 +469,7 @@ describe("RedisHashMap", () => {
 
     it("should refer to the same map when providing the same name", () => co(function* () {
         let _map = redis.HashMap.of("foo");
-        assert.deepStrictEqual(yield map.pairs(), yield _map.pairs());
+        assert.deepStrictEqual(yield map.getAll(), yield _map.getAll());
     }));
 
     it("should clear the map", () => co(function* () {
