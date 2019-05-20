@@ -21,6 +21,17 @@ export abstract class RedisFacade implements RedisFacadeInterface {
         return exec.call(this[_redis], cmd, this[_key], ...args);
     }
 
+    batch<T = RedisReply[]>(...cmds: (string | number)[][]): Promise<T> {
+        return new Promise((resolve, reject) => {
+            this[_redis].multi(cmds.map(cmd => {
+                cmd.splice(1, 0, this[_key]);
+                return cmd;
+            })).exec_atomic((err, results) => {
+                err ? reject(err) : resolve(<any>results);
+            });
+        });
+    }
+
     async setTTL(seconds: number) {
         let res = await this.exec<number>("expire", seconds);
         return res > 0 ? seconds : -1;

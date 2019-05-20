@@ -20,6 +20,10 @@ class RedisList extends RedisFacade implements RedisListInterface {
         return this.exec<number>("rpush", ...values);
     }
 
+    has(value: string) {
+        return this.includes(value);
+    }
+
     async includes(value: string) {
         return (await this.indexOf(value)) >= 0;
     }
@@ -28,13 +32,19 @@ class RedisList extends RedisFacade implements RedisListInterface {
         return (await this.values()).indexOf(value);
     }
 
-    async valueAt(index: number, value: string = undefined) {
-        if (isVoid(value)) {
-            return this.exec<string>("lindex", index);
-        } else {
-            await this.exec<number>("lset", index, value)
-            return value;
-        }
+    async get(index: number) {
+        return this.exec<string>("lindex", index);
+    }
+
+    async set(index: number, value: string) {
+        await this.exec<number>("lset", index, value)
+        return value;
+    }
+
+    async delete(...values: string[]) {
+        return (await this.batch<number[]>(...values.map(value => {
+            return ["lrem", 0, value];
+        }))).length > 0;
     }
 
     values() {
@@ -52,27 +62,23 @@ class RedisList extends RedisFacade implements RedisListInterface {
     async splice(start: number, count = 1, ...items: string[]) {
         let values = await this.values();
         let removed = values.splice(start, count, ...items);
-
-        await this.clear();
-        await this.push(...values);
-
+        await this.batch(["del"], ["rpush", ...values]);
         return removed;
     }
 
     async sort(order: 1 | -1 = 1) {
         let _order = order >= 0 ? "asc" : "desc";
-        await this.exec("sort", "alpha", _order, "store", this[key]);
-        return this.values();
+        let [, values] = await this.batch(
+            ["sort", "alpha", _order, "store", this[key]],
+            ["lrange", 0, -1]
+        );
+        return values;
     }
 
     async reverse() {
-        let values = await this.values();
-        let reversed = values.reverse();
-
-        await this.clear();
-        await this.push(...reversed);
-
-        return reversed;
+        let values = (await this.values()).reverse();
+        await this.batch(["del"], ["rpush", ...values]);
+        return values;
     }
 
     async forEach(fn: (value: string, index: number) => void, thisArg?: any) {
@@ -80,8 +86,12 @@ class RedisList extends RedisFacade implements RedisListInterface {
         values.forEach(fn, thisArg);
     }
 
-    length() {
+    size() {
         return this.exec<number>("llen");
+    }
+
+    length() {
+        return this.size();
     }
 }
 

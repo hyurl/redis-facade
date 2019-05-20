@@ -111,10 +111,12 @@ class RedisSortedSet extends RedisFacade implements RedisSortedSetInterface {
      * @param {number} count 
      * @returns {Promise<string[]>}
      */
-    async splice(start: number, count = 1): Promise<string[]> {
-        let end = start + count;
-        let values = await this.slice(start, end === 0 ? undefined : end);
-        let res = await this.exec<number>("zremrangebyrank", start, end - 1);
+    async splice(start: number, count = 1) {
+        let end = start + count - 1;
+        let [values, res] = await this.batch<[string[], number]>(
+            ["zrange", start, end === 0 ? -1 : end],
+            ["zremrangebyrank", start, end]
+        );
         return res > 0 ? values : [];
     }
 
@@ -163,8 +165,10 @@ class RedisSortedSet extends RedisFacade implements RedisSortedSetInterface {
     }
 
     async spliceByScore(minScore: number, maxScore: number) {
-        let values = await this.sliceByScore(minScore, maxScore);
-        let res = await this.exec<number>("zremrangebyscore", minScore, maxScore);
+        let [values, res] = await this.batch<[string[], number]>(
+            ["zrangebyscore", minScore, maxScore],
+            ["zremrangebyscore", minScore, maxScore]
+        );
         return res > 0 ? values : [];
     }
 }

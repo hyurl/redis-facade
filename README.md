@@ -2,6 +2,11 @@
 
 **Manipulates redis data in javascript vernacular.**
 
+This package help you bind a Redis key to a JavaScript variable with precise
+data type, and manipulate the specific data with similar methods borrowed from
+common JavaScript types, which hides the implementation details and differences
+between Redis commands and programmatic preferences. 
+
 ## Example
 
 ```javascript
@@ -32,8 +37,8 @@ const redis = createRedisFacade(createClient());
     console.log(await list.pop()); // "World"
     console.log(await list.includes("Hello")); // true
     console.log(await list.indexOf("Hello")); // 0
-    console.log(await list.valueAt(0)); // Hello
-    console.log(await list.length()); // 1
+    console.log(await list.get(0)); // Hello
+    console.log(await list.size()); // 1
     // ...
 })();
 
@@ -56,7 +61,27 @@ const redis = createRedisFacade(createClient());
     var set = redis.Set.of("mySet");
 
     await set.add("Hello", "World");
+
+    console.log(await set.values()); // ["Hello", "World"]
+    console.log(await set.has("Hello")); // true
+    console.log(await set.delete("World")); // true
+    console.log(await set.size()); // 1
+    console.log(await set.random()); // Hello
+    // ...
+})();
+
+(async () => {
+    var zset = redis.SortedSet.of("mySortedSet");
+
+    await zset.add("Hello", 1);
+    await zset.add("World", 2);
+
+    console.log(await zset.indexOf("Hello")); // 0
+    console.log(await zset.scoreOf("Hello")); // 1
+    console.log(await zset.pop()); // World
+    console.log(await zset.size()); // 1
+    // ...
 })();
 ```
 
-For full API support, check [index.d.ts](./index.d.ts).
+For full API support, check [index.d.ts](./src/index.ts).

@@ -1,11 +1,12 @@
+import { RedisClient } from 'redis';
 import createStringFacade from "./String";
 import createListFacade from "./List";
+import createHashMapFacade from "./HashMap";
 import createSetFacade from "./Set";
 import createSortedSetFacade from "./SortedSet";
-import createHashMapFacade from "./HashMap";
 import { createFacadeUtils, RedisReply, redis, key } from "./util";
-import { RedisClient } from 'redis';
 
+/** Creates a new facade with a redis connection. */
 export default function createRedisFacade(redis: RedisClient) {
     return Object.assign({
         String: createStringFacade(redis),
@@ -48,9 +49,17 @@ export interface RedisFacade {
     getTTL(): Promise<number>;
     /** Clears data and deletes the current key from the Redis store. */
     clear(): Promise<void>;
-    /** Executes a Redis command on the current key with optional arguments. */
-    exec(cmd: string, ...args: any[]): Promise<string | number | string[]>;
-    /** Checks if the current facade equals to another one. */
+    /**
+     * Executes a Redis command on the current key with optional arguments. Do 
+     * not provide the key, which will be auto-injected.
+     */
+    exec<T = RedisReply>(cmd: string, ...args: any[]): Promise<T>;
+    /**
+     * Executes multiple commands all at once within a transaction. Do not 
+     * provide the key, which will be auto-injected. Returns all replies of the
+     * commands in an array.
+     */
+    batch<T = RedisReply[]>(...cmds: (string | number)[][]): Promise<T>
 }
 
 export interface RedisString extends RedisFacade {
@@ -83,12 +92,18 @@ export interface RedisString extends RedisFacade {
     length(): Promise<number>;
 }
 
-export interface RedisCompoundType extends RedisFacade {
+export interface RedisCollection extends RedisFacade {
+    /** Checks if a value exists in the collection. */
+    has(value: string): Promise<boolean>;
+    /** Deletes one or more elements from the collection. */
+    delete(...values: string[]): Promise<boolean>;
     /** Returns all the values in the collection. */
     values(): Promise<string[]>;
+    /** Gets the size of the collection. */
+    size(): Promise<number>;
 }
 
-export interface RedisList extends RedisCompoundType {
+export interface RedisList extends RedisCollection {
     /** Removes and returns the last element of the list. */
     pop(): Promise<string>;
     /** Adds one or more elements into the end of the list. */
@@ -97,15 +112,19 @@ export interface RedisList extends RedisCompoundType {
     shift(): Promise<string>;
     /** Adds one or more elements into the head of the list. */
     unshift(...values: string[]): Promise<number>;
-    /** Checks if a value exists in the list. */
+    /** A synonym of `has()`. */
     includes(value: string): Promise<boolean>;
     /** Gets the index of the target element. */
     indexOf(value: string): Promise<number>;
+    /** Gets the value at the given index. */
+    get(index: number): Promise<string>;
+    /** Sets the value at the given index. */
+    set(index: number, value: string): Promise<string>;
     /**
-     * Gets and sets the value at the given index, the index must exist before
-     * modifying its value.
+     * Deletes one or more elements from the list, duplicated elements will be
+     * removed as well.
      */
-    valueAt(index: number, value?: string): Promise<string>;
+    delete(...values: string[]): Promise<boolean>;
     /** Extracts and returns a section of the list without modification. */
     slice(start: number, end?: number): Promise<string[]>;
     /**
@@ -119,15 +138,10 @@ export interface RedisList extends RedisCompoundType {
     sort(order?: 1 | -1): Promise<string[]>;
     /** Reverses the order of the list. */
     reverse(): Promise<string[]>;
-    /** Gets the length of the list. */
+    /** A synonym of `size()`. */
     length(): Promise<number>;
     /** Iterates all elements in the list. */
     forEach(fn: (value: string, index: number) => void, thisArg?: any): Promise<void>;
-}
-
-export interface RedisCollection extends RedisCompoundType {
-    /** Gets the size of the collection. */
-    size(): Promise<number>;
 }
 
 export interface RedisHashMap extends RedisCollection {
@@ -153,14 +167,7 @@ export interface RedisHashMap extends RedisCollection {
     forEach(fn: (value: string, key: string) => void, thisArg?: any): Promise<void>;
 }
 
-export interface RedisSetKind extends RedisCollection {
-    /** Checks if a value exists in the set. */
-    has(value: string): Promise<boolean>;
-    /** Deletes one or more elements from the set. */
-    delete(...values: string[]): Promise<boolean>;
-}
-
-export interface RedisSet extends RedisSetKind {
+export interface RedisSet extends RedisCollection {
     /**
      * Adds one or more elements into the set. **NOTE:** how these elements are 
      * placed in the set is not guaranteed.
@@ -195,7 +202,7 @@ export interface RedisSet extends RedisSetKind {
     forEach(fn: (value: string) => void, thisArg?: any): Promise<void>;
 }
 
-export interface RedisSortedSet extends RedisSetKind {
+export interface RedisSortedSet extends RedisCollection {
     /**
      * Adds a new element into the set, if `score` is omitted, elements will be
      * sorted alphabetically; if the element already exists, change its score 

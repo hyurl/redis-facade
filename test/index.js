@@ -137,6 +137,7 @@ describe("RedisList", () => {
     }));
 
     it("should check if a value exists in the list", () => co(function* () {
+        assert.strictEqual(yield list.has("Good"), true);
         assert.strictEqual(yield list.includes("Good"), true);
         assert.strictEqual(yield list.includes("Morning"), true);
         assert.strictEqual(yield list.includes("Hola"), false);
@@ -150,16 +151,21 @@ describe("RedisList", () => {
 
     it("should get the value at a specified index", () => co(function* () {
         assert.deepStrictEqual([
-            yield list.valueAt(0),
-            yield list.valueAt(1)
+            yield list.get(0),
+            yield list.get(1)
         ], ["Good", "Morning"]);
     }));
 
     it("should set the value at a specified index", () => co(function* () {
         assert.deepStrictEqual([
-            yield list.valueAt(0, "Nice"),
-            yield list.valueAt(1, "Day")
+            yield list.set(0, "Nice"),
+            yield list.set(1, "Day")
         ], ["Nice", "Day"]);
+    }));
+
+    it("should delete one or more elements", () => co(function* () {
+        yield list.push("a", "b", "c", "d", "a", "b");
+        assert.strictEqual(yield list.delete("a", "b", "c", "d"), true);
     }));
 
     it("should get all values from the list", () => co(function* () {
@@ -244,7 +250,8 @@ describe("RedisList", () => {
         assert.deepStrictEqual(yield list.values(), ["Nice", "Hi", "Ayon"]);
     }));
 
-    it("should get the length of the list", () => co(function* () {
+    it("should get the size of the list", () => co(function* () {
+        assert.strictEqual(yield list.size(), 3);
         assert.strictEqual(yield list.length(), 3);
     }));
 

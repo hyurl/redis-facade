@@ -35,8 +35,8 @@ class RedisString extends RedisFacade implements RedisStringInterface {
     }
 
     async append(str: string) {
-        await this.exec("append", str);
-        return this.get();
+        let [, result] = await this.batch(["append", str], ["get"]);
+        return result as string;
     }
 
     async increase(increment: number = undefined) {
