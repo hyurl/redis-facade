@@ -3,7 +3,7 @@ import createListFacade from "./List";
 import createSetFacade from "./Set";
 import createSortedSetFacade from "./SortedSet";
 import createHashMapFacade from "./HashMap";
-import { createRedisOperator, RedisReply } from "./util";
+import { createFacadeUtils, RedisReply, redis, key } from "./util";
 import { RedisClient } from 'redis';
 
 export default function createRedisFacade(redis: RedisClient) {
@@ -13,23 +13,35 @@ export default function createRedisFacade(redis: RedisClient) {
         HashMap: createHashMapFacade(redis),
         Set: createSetFacade(redis),
         SortedSet: createSortedSetFacade(redis)
-    }, createRedisOperator(redis));
+    }, createFacadeUtils(redis));
 }
 
-export interface RedisOperator {
+export interface RedisFacadeUtils {
+    /** Checks if the two facades refer to the same data. */
+    is<T extends RedisFacade>(ins1: T, ins2: T): boolean;
+    /** Executes a Redis command on a key along with optional arguments. */
+    exec<T = RedisReply>(cmd: string, key: string, ...args: any[]): Promise<T>;
+    /** Executes a Redis command related to the Redis server itself. */
+    exec<T = string>(cmd: string, ...args: any[]): Promise<T>;
     /** Checks if a key exists in the Redis store. */
     has(key: string): Promise<boolean>;
     /** Deletes a key from the Redis store. */
     delete(key: string): Promise<boolean>;
     /** Returns the data type of a key in Redis store. */
     typeof(key: string): Promise<"string" | "list" | "set" | "zset" | "hash" | "none">;
-    /** Executes a Redis command on a key along with optional arguments. */
-    exec<T = RedisReply>(cmd: string, key: string, ...args: any[]): Promise<T>;
-    /** Executes a Redis command related to the Redis server itself. */
-    exec<T = string>(cmd: string, ...args: any[]): Promise<T>;
+}
+
+export interface RedisFacadeType<T> {
+    readonly prototype: T;
+    /** Creates a facade instance and associates to a key in Redis store. */
+    of(key: string): T;
+    /** Checks if a key exists in Redis store and is of the current type. */
+    has(key: string): Promise<boolean>;
 }
 
 export interface RedisFacade {
+    [redis]: RedisClient;
+    [key]: string;
     /** Sets Time-To-Live on the current key in seconds. */
     setTTL(seconds: number): Promise<number>;
     /** Gets Time-To-Live on the current key in seconds. */
@@ -39,15 +51,6 @@ export interface RedisFacade {
     /** Executes a Redis command on the current key with optional arguments. */
     exec(cmd: string, ...args: any[]): Promise<string | number | string[]>;
     /** Checks if the current facade equals to another one. */
-    equals(another: RedisFacade): boolean;
-}
-
-export interface RedisFacadeType<T> {
-    readonly prototype: T;
-    /** Creates a facade instance and associates to a key in Redis store. */
-    of(key: string): T;
-    /** Checks if a key exists in Redis store and is of the current type. */
-    has(key: string): Promise<boolean>;
 }
 
 export interface RedisString extends RedisFacade {
@@ -116,10 +119,10 @@ export interface RedisList extends RedisCompoundType {
     sort(order?: 1 | -1): Promise<string[]>;
     /** Reverses the order of the list. */
     reverse(): Promise<string[]>;
-    /** Iterates all elements in the list. */
-    forEach(fn: (value: string, index: number) => void, thisArg?: any): Promise<void>;
     /** Gets the length of the list. */
     length(): Promise<number>;
+    /** Iterates all elements in the list. */
+    forEach(fn: (value: string, index: number) => void, thisArg?: any): Promise<void>;
 }
 
 export interface RedisCollection extends RedisCompoundType {
@@ -140,14 +143,14 @@ export interface RedisHashMap extends RedisCollection {
     delete(key: string): Promise<boolean>;
     /** Returns all the keys of the map. */
     keys(): Promise<string[]>;
-    /** Iterates all elements in the collection. */
-    forEach(fn: (value: string, key: string) => void, thisArg?: any): Promise<void>;
     /** Returns all key-value pairs of the map. */
     getAll(): Promise<{ [key: string]: string }>;
     /** Increases a key's value if it's a numeric string. */
     increase(key: string, increment?: number): Promise<string>;
     /** Decreases a key's value if it's a numeric string. */
     decrease(key: string, decrement?: number): Promise<string>;
+    /** Iterates all elements in the collection. */
+    forEach(fn: (value: string, key: string) => void, thisArg?: any): Promise<void>;
 }
 
 export interface RedisSetKind extends RedisCollection {
@@ -163,8 +166,6 @@ export interface RedisSet extends RedisSetKind {
      * placed in the set is not guaranteed.
      */
     add(...values: string[]): Promise<this>;
-    /** Iterates all elements in the collection. */
-    forEach(fn: (value: string) => void, thisArg?: any): Promise<void>;
     /** Removes and returns a random element from the set. */
     pop(): Promise<string>;
     /**
@@ -190,6 +191,8 @@ export interface RedisSet extends RedisSetKind {
     intersection(...sets: RedisSet[]): Promise<string[]>;
     /** Gets the union elements between the current set and the given sets. */
     union(...sets: RedisSet[]): Promise<string[]>;
+    /** Iterates all elements in the collection. */
+    forEach(fn: (value: string) => void, thisArg?: any): Promise<void>;
 }
 
 export interface RedisSortedSet extends RedisSetKind {
@@ -209,8 +212,6 @@ export interface RedisSortedSet extends RedisSetKind {
     /** Gets the score of an element. */
     scoreOf(value: string): Promise<number>;
     scores(): Promise<{ [value: string]: number }>;
-    /** Iterates all elements in the list. */
-    forEach(fn: (value: string, score: number) => void, thisArg?: any): Promise<void>;
     /**
      * Increases the score of the an element, and adds the element with the 
      * `increment` as its score if it does not exist, returns the new score.
@@ -268,4 +269,6 @@ export interface RedisSortedSet extends RedisSetKind {
      * (included) scores without modification.
      */
     spliceByScore(minScore: number, maxScore: number): Promise<string[]>;
+    /** Iterates all elements in the list. */
+    forEach(fn: (value: string, score: number) => void, thisArg?: any): Promise<void>;
 }

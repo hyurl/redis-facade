@@ -1,6 +1,8 @@
 import { RedisClient } from "redis";
-import { RedisFacade } from "./Facade";
-import { RedisOperator, RedisFacadeType } from '.';
+import { RedisFacadeUtils, RedisFacade, RedisFacadeType } from '.';
+
+export const key = Symbol("RedisDataKey");
+export const redis = Symbol("RedisClient");
 
 export type CommandArguments = (string | number | object)[];
 export type RedisReply = string | number | string[];
@@ -29,14 +31,21 @@ export function exec(
     });
 };
 
-export function createRedisOperator(redis: RedisClient): RedisOperator {
+export function createFacadeUtils(redis: RedisClient): RedisFacadeUtils {
     let _exec: (...args: any[]) => Promise<RedisReply> = exec.bind(redis);
+    let { redis: _redis, key: _key } = exports;
 
     return {
+        is: (ins1: RedisFacade, ins2: RedisFacade) => {
+            return ins1.constructor && ins2.constructor
+                && ins1.constructor === ins2.constructor
+                && ins1[_redis] === ins2[_redis]
+                && ins1[_key] === ins2[_key];
+        },
+        exec: _exec,
         has: (key: string) => _exec("exists", key).then(res => res > 0),
         delete: (key: string) => _exec("del", key).then(res => res > 0),
         typeof: (key: string) => _exec("type", key) as Promise<any>,
-        exec: _exec
     };
 };
 

@@ -1,5 +1,5 @@
 import { RedisFacade } from "./Facade";
-import { createFacadeType, isVoid } from "./util";
+import { createFacadeType, isVoid, key } from "./util";
 import { RedisList as RedisListInterface } from ".";
 import { RedisClient } from "redis";
 
@@ -61,7 +61,7 @@ class RedisList extends RedisFacade implements RedisListInterface {
 
     async sort(order: 1 | -1 = 1) {
         let _order = order >= 0 ? "asc" : "desc";
-        await this.exec("sort", "alpha", _order, `store ${this.key}`);
+        await this.exec("sort", "alpha", _order, "store", this[key]);
         return this.values();
     }
 

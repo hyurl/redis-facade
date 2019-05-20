@@ -1,6 +1,6 @@
 # Redis Facade
 
-**Manipulates redis data in javascript style.**
+**Manipulates redis data in javascript vernacular.**
 
 ## Example
 

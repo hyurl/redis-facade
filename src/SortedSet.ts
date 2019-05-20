@@ -1,5 +1,5 @@
 import { RedisFacade } from "./Facade";
-import { createFacadeType, isVoid, isRedisV5 } from "./util";
+import { createFacadeType, isVoid, isRedisV5, redis } from "./util";
 import { RedisSortedSet as RedisSortedSetInterface } from ".";
 import { RedisClient } from "redis";
 
@@ -44,7 +44,7 @@ class RedisSortedSet extends RedisFacade implements RedisSortedSetInterface {
             let [_csr, items] = await this.exec<[string, string[]]>("zscan", csr);
 
             for (let i = 0; i < items.length; i += 2) {
-                fn.apply(thisArg, [items[i], Number(items[i])]);
+                fn.apply(thisArg, [items[i], Number(items[i + 1])]);
             }
 
             csr = Number(_csr);
@@ -57,7 +57,7 @@ class RedisSortedSet extends RedisFacade implements RedisSortedSetInterface {
     pop(): Promise<string>;
     pop(withScore: true): Promise<[string, number]>;
     async pop(withScores = false) {
-        if (isRedisV5(this.redis)) {
+        if (isRedisV5(this[redis])) {
             let [value, score] = await this.exec<[string, string]>("zpopmax");
             return withScores ? [value, Number(score)] : value;
         } else {
@@ -79,7 +79,7 @@ class RedisSortedSet extends RedisFacade implements RedisSortedSetInterface {
     shift(): Promise<string>;
     shift(withScore: true): Promise<[string, number]>;
     async shift(withScores = false) {
-        if (isRedisV5(this.redis)) {
+        if (isRedisV5(this[redis])) {
             let [value, score] = await this.exec<[string, string]>("zpopmin");
             return withScores ? [value, Number(score)] : value;
         } else {

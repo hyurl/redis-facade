@@ -232,20 +232,45 @@ describe("RedisList", () => {
         assert.deepStrictEqual(yield list.values(), ["Ayon", "Hi", "Nice"]);
     }));
 
-    it("should sort the list in ascending order", () => () => co(function* () {
+    it("should sort the list in ascending order", () => co(function* () {
         assert.deepStrictEqual(yield list.sort(), ["Ayon", "Hi", "Nice"]);
         assert.deepStrictEqual(yield list.values(), ["Ayon", "Hi", "Nice"]);
         assert.deepStrictEqual(yield list.sort(1), ["Ayon", "Hi", "Nice"]);
         assert.deepStrictEqual(yield list.values(), ["Ayon", "Hi", "Nice"]);
     }));
 
-    it("should sort the list in descending order", () => () => co(function* () {
+    it("should sort the list in descending order", () => co(function* () {
         assert.deepStrictEqual(yield list.sort(-1), ["Nice", "Hi", "Ayon"]);
         assert.deepStrictEqual(yield list.values(), ["Nice", "Hi", "Ayon"]);
     }));
 
     it("should get the length of the list", () => co(function* () {
         assert.strictEqual(yield list.length(), 3);
+    }));
+
+    it("should iterate all elements in the list", () => co(function* () {
+        let values = [];
+        let indexes = [];
+        let container = {
+            values: [],
+            indexes: []
+        };
+
+        yield list.forEach((value, index) => {
+            values.push(value);
+            indexes.push(index);
+        });
+        yield list.forEach(function (value, index) {
+            this.values.push(value);
+            this.indexes.push(index);
+        }, container);
+
+        assert.deepStrictEqual(values, ["Nice", "Hi", "Ayon"]);
+        assert.deepStrictEqual(indexes, [0, 1, 2]);
+        assert.deepStrictEqual(container, {
+            values: ["Nice", "Hi", "Ayon"],
+            indexes: [0, 1, 2]
+        });
     }));
 
     it("should refer to the same list when providing the same name", () => co(function* () {
@@ -390,6 +415,24 @@ describe("RedisSet", () => {
         yield _set2.clear();
     }));
 
+    it("should iterate all elements in the set", () => co(function* () {
+        let values = [];
+        let container = { values: [] };
+        let _values = yield set.values();
+
+        yield set.forEach((value) => {
+            values.push(value);
+        });
+        yield set.forEach(function (value) {
+            this.values.push(value);
+        }, container);
+
+        assert.deepStrictEqual(values, _values);
+        assert.deepStrictEqual(container, {
+            values: _values,
+        });
+    }));
+
     it("should refer to the same set when providing the same name", () => co(function* () {
         let _set = redis.Set.of("foo");
         assert.deepStrictEqual(yield set.values(), yield _set.values());
@@ -465,6 +508,24 @@ describe("RedisHashMap", () => {
         assert.strictEqual(yield map.decrease("count", 2), "120");
         assert.strictEqual(yield map.decrease("count", 1.5), "118.5");
         assert.strictEqual(yield map.get("count"), "118.5");
+    }));
+
+    it("should iterate all elements in the map", () => co(function* () {
+        let data = {};
+        let container = { data: {} };
+        let _data = yield map.getAll();
+
+        yield map.forEach((value, key) => {
+            data[key] = value;
+        });
+        yield map.forEach(function (value, key) {
+            this.data[key] = value;
+        }, container);
+
+        assert.deepStrictEqual(data, _data);
+        assert.deepStrictEqual(container, {
+            data: _data,
+        });
     }));
 
     it("should refer to the same map when providing the same name", () => co(function* () {
@@ -640,13 +701,49 @@ describe("RedisSortedSet", () => {
         assert.deepStrictEqual(yield set.values(), ["Hello", "Ayon"]);
     }));
 
+    it("should iterate all elements in the map", () => co(function* () {
+        let data = {};
+        let container = { data: {} };
+        let _data = yield set.scores();
+
+        yield set.forEach((value, score) => {
+            data[value] = score;
+        });
+        yield set.forEach(function (value, score) {
+            this.data[value] = score;
+        }, container);
+
+        assert.deepStrictEqual(data, _data);
+        assert.deepStrictEqual(container, {
+            data: _data,
+        });
+    }));
+
     it("should clear the set", () => co(function* () {
         assert.strictEqual(yield set.clear(), undefined);
         assert.strictEqual(yield set.size(), 0);
     }));
 });
 
-describe("RedisOperator & RedisFacadeType", () => {
+describe("RedisFacadeUtils & RedisFacadeType", () => {
+    it("should check if the two facades refer to the same data.", () => {
+        assert(redis.is(redis.String.of("foo"), redis.String.of("foo")));
+        assert(redis.is(redis.List.of("foo"), redis.List.of("foo")));
+        assert(redis.is(redis.HashMap.of("foo"), redis.HashMap.of("foo")));
+        assert(redis.is(redis.Set.of("foo"), redis.Set.of("foo")));
+        assert(redis.is(redis.SortedSet.of("foo"), redis.SortedSet.of("foo")));
+        assert(!redis.is(redis.String.of("foo"), redis.String.of("bar")));
+        assert(!redis.is(redis.List.of("foo"), redis.List.of("bar")));
+        assert(!redis.is(redis.HashMap.of("foo"), redis.HashMap.of("bar")));
+        assert(!redis.is(redis.Set.of("foo"), redis.Set.of("bar")));
+        assert(!redis.is(redis.SortedSet.of("foo"), redis.SortedSet.of("bar")));
+        assert(!redis.is(redis.String.of("foo"), redis.List.of("foo")));
+        assert(!redis.is(redis.List.of("foo"), redis.HashMap.of("foo")));
+        assert(!redis.is(redis.HashMap.of("foo"), redis.Set.of("foo")));
+        assert(!redis.is(redis.Set.of("foo"), redis.SortedSet.of("foo")));
+        assert(!redis.is(redis.SortedSet.of("foo"), redis.String.of("foo")));
+    });
+
     it("should check if a key exists in redis store", () => co(function* () {
         assert.strictEqual(yield redis.has("foo"), false);
         yield redis.String.of("foo").set("Hello, World!");

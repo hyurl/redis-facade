@@ -1,19 +1,24 @@
 import { RedisClient } from "redis";
-import { exec, RedisReply, CommandArguments } from "./util";
 import { RedisFacade as RedisFacadeInterface } from ".";
-
-// export const key = Symbol("RedisDataKey");
-// export const redis = Symbol("RedisClient");
+import {
+    redis as _redis,
+    key as _key,
+    exec,
+    RedisReply,
+    CommandArguments
+} from "./util";
 
 export abstract class RedisFacade implements RedisFacadeInterface {
-    /**
-     * @param redis A key in the Redis store that this instance binds to.
-     * @param key Sets Time-To-Live on the current key in seconds.
-     */
-    constructor(protected redis: RedisClient, protected key: string) { }
+    [_redis]: RedisClient
+    [_key]: string;
+
+    constructor(redis: RedisClient, key: string) {
+        this[_redis] = redis;
+        this[_key] = key;
+    }
 
     exec<T = RedisReply>(cmd: string, ...args: CommandArguments): Promise<T> {
-        return exec.call(this.redis, cmd, this.key, ...args);
+        return exec.call(this[_redis], cmd, this[_key], ...args);
     }
 
     async setTTL(seconds: number) {
@@ -27,11 +32,5 @@ export abstract class RedisFacade implements RedisFacadeInterface {
 
     async clear() {
         await this.exec("del");
-    }
-
-    equals(another: RedisFacade) {
-        return this.constructor === another.constructor
-            && this.redis === another.redis
-            && this.key === another.key;
     }
 }

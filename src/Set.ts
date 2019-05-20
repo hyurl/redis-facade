@@ -1,5 +1,5 @@
 import { RedisFacade } from "./Facade";
-import { createFacadeType } from "./util";
+import { createFacadeType, key } from "./util";
 import { RedisSet as RedisSetInterface } from ".";
 import { RedisClient } from "redis";
 
@@ -25,7 +25,7 @@ class RedisSet extends RedisFacade implements RedisSetInterface {
         let csr = 0;
 
         while (true) {
-            let [_csr, items] = await this.exec<[string, string[]]>("hscan", csr);
+            let [_csr, items] = await this.exec<[string, string[]]>("sscan", csr);
 
             for (let value of items) {
                 fn.apply(thisArg, [value]);
@@ -63,15 +63,15 @@ class RedisSet extends RedisFacade implements RedisSetInterface {
     }
 
     difference(...sets: RedisSetInterface[]) {
-        return this.exec<string[]>("sdiff", ...sets.map(set => set["key"]));
+        return this.exec<string[]>("sdiff", ...sets.map(set => set[key]));
     }
 
     intersection(...sets: RedisSetInterface[]) {
-        return this.exec<string[]>("sinter", ...sets.map(set => set["key"]));
+        return this.exec<string[]>("sinter", ...sets.map(set => set[key]));
     }
 
     union(...sets: RedisSetInterface[]) {
-        return this.exec<string[]>("sunion", ...sets.map(set => set["key"]));
+        return this.exec<string[]>("sunion", ...sets.map(set => set[key]));
     }
 }
 
