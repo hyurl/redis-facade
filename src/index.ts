@@ -262,7 +262,7 @@ export interface RedisSortedSet extends RedisCollection {
      * @param count Number of elements to be deleted, `1` by default
      */
     splice(start: number, count?: number): Promise<string[]>;
-    /** Gets the number of elements with the specified scores. */
+    /** Gets the number of elements with the specified score. */
     countByScore(score: number): Promise<number>;
     /** Gets the number of elements between the minimum and maximum scores. */
     countByScore(minScore: number, maxScore: number): Promise<number>;
