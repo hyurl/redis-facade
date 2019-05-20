@@ -5,7 +5,15 @@
 This package help you bind a Redis key to a JavaScript variable with precise
 data type, and manipulate the specific data with similar methods borrowed from
 common JavaScript types, which hides the implementation details and differences
-between Redis commands and programmatic preferences. 
+between Redis commands and programmatic preferences.
+
+## Install
+
+(Install **redis** along with **redis-facade**.)
+
+```
+npm i redis redis-facade
+```
 
 ## Example
 
