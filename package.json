@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "types": "src/index.ts",
   "scripts": {
-    "pretest": "tsc",
-    "test": "mocha test --exit"
+    "prepublish": "tsc",
+    "test": "mocha test/index.ts --require ts-node/register --recursive --exit"
   },
   "engines": {
     "node": ">=6.0"
@@ -32,9 +32,10 @@
     "tslib": "^1.9.3"
   },
   "devDependencies": {
-    "co": "^4.6.0",
+    "@types/mocha": "^5.2.6",
     "mocha": "^6.1.4",
     "redis": "^2.8.0",
+    "ts-node": "^8.1.0",
     "typescript": "^3.4.5"
   }
 }
