@@ -14,8 +14,8 @@ class RedisString extends RedisFacade implements RedisStringInterface {
         return value;
     }
 
-    get() {
-        return this.exec<string>("get");
+    async get() {
+        return (await this.exec<string>("get")) || "";
     }
 
     slice(start: number, end: number = undefined) {
@@ -34,9 +34,73 @@ class RedisString extends RedisFacade implements RedisStringInterface {
         return str === (await this.slice(-str.length));
     }
 
-    async append(str: string) {
-        let [, result] = await this.batch(["append", str], ["get"]);
+    async includes(str: string) {
+        return -1 !== (await this.indexOf(str));
+    }
+
+    async indexOf(str: string) {
+        return (await this.get()).indexOf(str);
+    }
+
+    async lastIndexOf(str: string) {
+        return (await this.get()).lastIndexOf(str);
+    }
+
+    async search(partial: string | RegExp) {
+        return (await this.get()).search(partial);
+    }
+
+    charAt(index: number) {
+        return this.slice(index, index + 1);
+    }
+
+    async charCodeAt(index: number) {
+        return (await this.charAt(index)).charCodeAt(0);
+    }
+
+    async concat(...strings: string[]) {
+        let [, result] = await this.batch(["append", strings.join("")], ["get"]);
         return result as string;
+    }
+
+    /** A synonym of `concat()`. */
+    append(...strings: string[]) {
+        return this.concat(...strings);
+    }
+
+    async padStart(maxLength: number, fillString = " ") {
+        let value = (await this.get()).padStart(maxLength, fillString);
+        return this.set(value);
+    }
+
+    async padEnd(maxLength: number, fillString = " ") {
+        let value = (await this.get()).padEnd(maxLength, fillString);
+        return this.set(value);
+    }
+
+    async trim() {
+        return this.set((await this.get()).trim());
+    }
+
+    async trimStart() {
+        return this.set((await this.get()).trimLeft());
+    }
+
+    async trimEnd() {
+        return this.set((await this.get()).trimRight());
+    }
+
+    async toLowerCase() {
+        return this.set((await this.get()).toLowerCase());
+    }
+
+    async toUpperCase() {
+        return this.set((await this.get()).toUpperCase());
+    }
+
+    async replace(str: string, replacement: string) {
+        let value = (await this.get()).replace(str, replacement);
+        return this.set(value);
     }
 
     async increase(increment: number = undefined) {

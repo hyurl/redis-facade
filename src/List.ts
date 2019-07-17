@@ -47,6 +47,14 @@ class RedisList extends RedisFacade implements RedisListInterface {
         }))).length > 0;
     }
 
+    async concat(...values: (string | string[])[]) {
+        let [, value] = await this.batch<[number, string[]]>(
+            ["rpush", ...[].concat(values)],
+            ["lrange", 0, -1]
+        );
+        return value;
+    }
+
     values() {
         return this.slice(0);
     }

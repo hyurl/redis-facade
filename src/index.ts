@@ -40,6 +40,11 @@ export interface RedisFacadeType<T> {
     has(key: string): Promise<boolean>;
 }
 
+/**
+ * A RedisFacade instance is a manifestation of the corresponding data and type,
+ * unless being told, many of their methods methods will modified the original
+ * value in the Redis store.
+ */
 export interface RedisFacade {
     [redis]: RedisClient;
     [key]: string;
@@ -62,6 +67,11 @@ export interface RedisFacade {
     batch<T = RedisReply[]>(...cmds: (string | number)[][]): Promise<T>
 }
 
+/**
+ * Unlike the JavaScript string, a RedisString instance is mutable, unless
+ * pointing out, many methods of this type will modified the value in the Redis
+ * store. 
+ */
 export interface RedisString extends RedisFacade {
     /** Sets the value of the string. */
     set(value: string, ttl?: number): Promise<string>;
@@ -73,11 +83,26 @@ export interface RedisString extends RedisFacade {
     startsWith(str: string): Promise<boolean>;
     /** Checks if the string ends with the search string. */
     endsWith(str: string): Promise<boolean>;
+    includes(str: string): Promise<boolean>;
+    indexOf(str: string): Promise<number>;
+    lastIndexOf(str: string): Promise<number>;
+    search(partial: string | RegExp): Promise<number>;
+    charAt(index: number): Promise<string>;
+    charCodeAt(index: number): Promise<number>;
+    concat(...strings: string[]): Promise<string>;
     /**
      * Appends a string to the end of the string. **NOTE:** this method modifies
      * the original string.
      */
     append(str: string): Promise<string>;
+    padStart(maxLength: number, fillString?: string): Promise<string>;
+    padEnd(maxLength: number, fillString?: string): Promise<string>;
+    trim(): Promise<string>;
+    trimStart(): Promise<string>;
+    trimEnd(): Promise<string>;
+    toLowerCase(): Promise<string>;
+    toUpperCase(): Promise<string>;
+    replace(str: string, replacement: string): Promise<string>;
     /**
      * Increases the string if it's a numeric string. **NOTE:** this method 
      * modifies the original string.
@@ -125,6 +150,11 @@ export interface RedisList extends RedisCollection {
      * removed as well.
      */
     delete(...values: string[]): Promise<boolean>;
+    /**
+     * Adds one or more elements (or element collections) to the end of the
+     * list.
+     */
+    concat(...values: (string | string[])[]): Promise<string[]>;
     /** Extracts and returns a section of the list without modification. */
     slice(start: number, end?: number): Promise<string[]>;
     /**
