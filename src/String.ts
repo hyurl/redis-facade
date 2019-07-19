@@ -15,7 +15,7 @@ class RedisString extends RedisFacade implements RedisStringInterface {
     }
 
     async get() {
-        return (await this.exec<string>("get")) || "";
+        return await this.exec<string>("get");
     }
 
     slice(start: number, end: number = undefined) {
