@@ -7,7 +7,7 @@ import createSortedSetFacade from "./SortedSet";
 import { createFacadeUtils, RedisReply, redis, key } from "./util";
 
 /** Creates a new facade with a redis connection. */
-export default function createRedisFacade(redis: RedisClient) {
+export default function createRedisFacade(redis: RedisClient): RedisFacadeEntry {
     return Object.assign({
         String: createStringFacade(redis),
         List: createListFacade(redis),
@@ -16,6 +16,14 @@ export default function createRedisFacade(redis: RedisClient) {
         SortedSet: createSortedSetFacade(redis)
     }, createFacadeUtils(redis));
 }
+
+export type RedisFacadeEntry = {
+    String: RedisFacadeType<RedisString>,
+    List: RedisFacadeType<RedisList>,
+    HashMap: RedisFacadeType<RedisHashMap>,
+    Set: RedisFacadeType<RedisSet>,
+    SortedSet: RedisFacadeType<RedisSortedSet>,
+} & RedisFacadeUtils;
 
 export interface RedisFacadeUtils {
     /** Checks if the two facades refer to the same data. */
