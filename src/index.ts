@@ -68,32 +68,37 @@ export interface RedisFacade {
 }
 
 /**
- * Unlike the JavaScript string, a RedisString instance is mutable, unless
- * pointing out, many methods of this type will modified the value in the Redis
- * store. 
+ * Unlike the JavaScript string literal, a RedisString instance is mutable,
+ * unless pointing out, many methods of this type will modified the value in the
+ * Redis store. 
  */
 export interface RedisString extends RedisFacade {
     /** Sets the value of the string. */
     set(value: string, ttl?: number): Promise<string>;
     /** Gets the value of the string. */
     get(): Promise<string>;
-    /** Extracts and returns a section of the string without modification. */
+    /** Returns a section of the string. */
     slice(start: number, end?: number): Promise<string>;
     /** Checks if the string starts with the search string. */
     startsWith(str: string): Promise<boolean>;
     /** Checks if the string ends with the search string. */
     endsWith(str: string): Promise<boolean>;
-    includes(str: string): Promise<boolean>;
-    indexOf(str: string): Promise<number>;
-    lastIndexOf(str: string): Promise<number>;
-    search(partial: string | RegExp): Promise<number>;
-    charAt(index: number): Promise<string>;
-    charCodeAt(index: number): Promise<number>;
-    concat(...strings: string[]): Promise<string>;
+    /** Checks if the string includes a substring. */
+    includes(str: string, start?: number): Promise<boolean>;
+    /** Finds the first appearance position of the substring. */
+    indexOf(str: string, start?: number): Promise<number>;
+    /** Finds the last appearance position of the substring. */
+    lastIndexOf(str: string, start?: number): Promise<number>;
     /**
-     * Appends a string to the end of the string. **NOTE:** this method modifies
-     * the original string.
+     * Finds the first appearance position of the substring by regular
+     * expression.
      */
+    search(partial: string | RegExp): Promise<number>;
+    /** Returns the character at a specific potion of the string. */
+    charAt(index: number): Promise<string>;
+    /** Returns the Unicode value at a specific potion of the string. */
+    charCodeAt(index: number): Promise<number>;
+    /** Appends a string to the end of the string. */
     append(str: string): Promise<string>;
     padStart(maxLength: number, fillString?: string): Promise<string>;
     padEnd(maxLength: number, fillString?: string): Promise<string>;
@@ -103,15 +108,9 @@ export interface RedisString extends RedisFacade {
     toLowerCase(): Promise<string>;
     toUpperCase(): Promise<string>;
     replace(str: string, replacement: string): Promise<string>;
-    /**
-     * Increases the string if it's a numeric string. **NOTE:** this method 
-     * modifies the original string.
-     */
+    /** Increases the string if it's numeric. */
     increase(increment?: number): Promise<string>;
-    /**
-     * Decreases the string if it's a numeric string. **NOTE:** this method 
-     * modifies the original string.
-     */
+    /** Decreases the string if it's numeric. */
     decrease(decrement?: number): Promise<string>;
     /** Gets the length of the string. */
     length(): Promise<number>;
@@ -187,8 +186,8 @@ export interface RedisHashMap extends RedisCollection {
     delete(key: string): Promise<boolean>;
     /** Returns all the keys of the map. */
     keys(): Promise<string[]>;
-    /** Returns all key-value pairs of the map. */
-    getAll(): Promise<{ [key: string]: string }>;
+    /** Returns all key-value pairs of the map in a plain object. */
+    toObject(): Promise<{ [key: string]: string }>;
     /** Increases a key's value if it's a numeric string. */
     increase(key: string, increment?: number): Promise<string>;
     /** Decreases a key's value if it's a numeric string. */

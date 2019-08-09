@@ -34,16 +34,22 @@ class RedisString extends RedisFacade implements RedisStringInterface {
         return str === (await this.slice(-str.length));
     }
 
-    async includes(str: string) {
-        return -1 !== (await this.indexOf(str));
+    async includes(str: string, start: number = 0) {
+        let _str = await this.get();
+
+        if (str.length + start > _str.length) {
+            return false;
+        } else {
+            return _str.includes(str, start);
+        }
     }
 
-    async indexOf(str: string) {
-        return (await this.get()).indexOf(str);
+    async indexOf(str: string, start: number = 0) {
+        return (await this.get()).indexOf(str, start);
     }
 
-    async lastIndexOf(str: string) {
-        return (await this.get()).lastIndexOf(str);
+    async lastIndexOf(str: string, start: number = 0) {
+        return (await this.get()).lastIndexOf(str, start);
     }
 
     async search(partial: string | RegExp) {
@@ -58,14 +64,9 @@ class RedisString extends RedisFacade implements RedisStringInterface {
         return (await this.charAt(index)).charCodeAt(0);
     }
 
-    async concat(...strings: string[]) {
+    async append(...strings: string[]) {
         let [, result] = await this.batch(["append", strings.join("")], ["get"]);
         return result as string;
-    }
-
-    /** A synonym of `concat()`. */
-    append(...strings: string[]) {
-        return this.concat(...strings);
     }
 
     async padStart(maxLength: number, fillString = " ") {

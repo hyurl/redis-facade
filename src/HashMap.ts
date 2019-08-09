@@ -34,7 +34,7 @@ class RedisHashMap extends RedisFacade implements RedisHashMapInterface {
         return this.exec<string[]>("hvals");
     }
 
-    getAll() {
+    toObject() {
         return this.exec<{ [key: string]: string }>("hgetall");
     }
 
