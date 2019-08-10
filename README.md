@@ -61,7 +61,7 @@ const redis = createRedisFacade(createClient());
     console.log(await map.delete("foo")); // true
     console.log(await map.keys()); // ["bar"]
     console.log(await map.values()); // ["World"]
-    console.log(await map.getAll()); // { bar: "World" }
+    console.log(await map.toObject()); // { bar: "World" }
     // ...
 })();
 
