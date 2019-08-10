@@ -50,8 +50,8 @@ export interface RedisFacadeType<T> {
 
 /**
  * A RedisFacade instance is a manifestation of the corresponding data and type,
- * unless being told, many of their methods methods will modified the original
- * value in the Redis store.
+ * unless being told, many of their methods will modify the original value in 
+ * the Redis store.
  */
 export interface RedisFacade {
     [redis]: RedisClient;
@@ -63,13 +63,13 @@ export interface RedisFacade {
     /** Clears data and deletes the current key from the Redis store. */
     clear(): Promise<void>;
     /**
-     * Executes a Redis command on the current key with optional arguments. Do 
-     * not provide the key, which will be auto-injected.
+     * Executes a Redis command on the current key with optional arguments.
+     * DON'T pass the key here, it will be auto-injected.
      */
     exec<T = RedisReply>(cmd: string, ...args: any[]): Promise<T>;
     /**
-     * Executes multiple commands all at once within a transaction. Do not 
-     * provide the key, which will be auto-injected. Returns all replies of the
+     * Executes multiple commands all at once within a transaction. DON'T pass
+     * the key here, it will be auto-injected. Returns all replies of the
      * commands in an array.
      */
     batch<T = RedisReply[]>(...cmds: (string | number)[][]): Promise<T>
@@ -77,8 +77,8 @@ export interface RedisFacade {
 
 /**
  * Unlike the JavaScript string literal, a RedisString instance is mutable,
- * unless pointing out, many methods of this type will modified the value in the
- * Redis store. 
+ * unless pointing out, many monipulation methods of this type will modified the
+ * value in the Redis store.
  */
 export interface RedisString extends RedisFacade {
     /** Sets the value of the string. */
@@ -106,16 +106,35 @@ export interface RedisString extends RedisFacade {
     charAt(index: number): Promise<string>;
     /** Returns the Unicode value at a specific potion of the string. */
     charCodeAt(index: number): Promise<number>;
-    /** Appends a string to the end of the string. */
+    /** Appends another string to the end of the current string. */
     append(str: string): Promise<string>;
+    /**
+     * Pads the current string with specified fill string at the beginning until
+     * fulfills the length requirement.  
+     */
     padStart(maxLength: number, fillString?: string): Promise<string>;
+    /**
+     * Pads the current string with specified fill string at the end until
+     * fulfills the length requirement.  
+     */
     padEnd(maxLength: number, fillString?: string): Promise<string>;
+    /**
+     * Remove white spaces at the beginning and the end of the string.
+     */
     trim(): Promise<string>;
+    /** Remove white spaces at the beginning of the string. */
     trimStart(): Promise<string>;
+    /** Remove white spaces at the end of the string. */
     trimEnd(): Promise<string>;
+    /** Transfer all the characters in the string to lower-case. */
     toLowerCase(): Promise<string>;
+    /** Transfer all the characters in the string to upper-case. */
     toUpperCase(): Promise<string>;
-    replace(str: string, replacement: string): Promise<string>;
+    /**
+     * Replaces a section of the string that matches the given input to another
+     * string or a function that returns a new string.
+     */
+    replace(str: string | RegExp, replacement: string | Function): Promise<string>;
     /** Increases the string if it's numeric. */
     increase(increment?: number): Promise<string>;
     /** Decreases the string if it's numeric. */

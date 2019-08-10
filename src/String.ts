@@ -99,8 +99,8 @@ class RedisString extends RedisFacade implements RedisStringInterface {
         return this.set((await this.get()).toUpperCase());
     }
 
-    async replace(str: string, replacement: string) {
-        let value = (await this.get()).replace(str, replacement);
+    async replace(str: string | RegExp, replacement: string | Function) {
+        let value = (await this.get()).replace(str, <any>replacement);
         return this.set(value);
     }
 

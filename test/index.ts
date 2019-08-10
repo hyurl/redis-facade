@@ -491,7 +491,7 @@ describe("RedisHashMap", () => {
     });
 
     it("should get all key-value pairs of the map", async () => {
-        assert.deepStrictEqual(await map.getAll(), {
+        assert.deepStrictEqual(await map.toObject(), {
             greet: "Hello, World!",
             answer: "Hi, Ayon!"
         });
@@ -516,7 +516,7 @@ describe("RedisHashMap", () => {
     it("should iterate all elements in the map", async () => {
         let data = {};
         let container = { data: {} };
-        let _data = await map.getAll();
+        let _data = await map.toObject();
 
         await map.forEach((value, key) => {
             data[key] = value;
@@ -533,7 +533,7 @@ describe("RedisHashMap", () => {
 
     it("should refer to the same map when providing the same name", async () => {
         let _map = redis.HashMap.of("foo");
-        assert.deepStrictEqual(await map.getAll(), await _map.getAll());
+        assert.deepStrictEqual(await map.toObject(), await _map.toObject());
     });
 
     it("should clear the map", async () => {
