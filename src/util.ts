@@ -46,6 +46,11 @@ export function createFacadeUtils(redis: RedisClient): RedisFacadeUtils {
         has: (key: string) => _exec("exists", key).then(res => res > 0),
         delete: (key: string) => _exec("del", key).then(res => res > 0),
         typeof: (key: string) => _exec("type", key) as Promise<any>,
+        disconnect: () => {
+            return new Promise<void>((resolve) => {
+                redis.quit(() => resolve());
+            });
+        }
     };
 };
 

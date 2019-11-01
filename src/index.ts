@@ -38,6 +38,8 @@ export interface RedisFacadeUtils {
     delete(key: string): Promise<boolean>;
     /** Returns the data type of a key in Redis store. */
     typeof(key: string): Promise<"string" | "list" | "set" | "zset" | "hash" | "none">;
+    /** Closes the redis connection. */
+    disconnect(): Promise<void>;
 }
 
 export interface RedisFacadeType<T> {

@@ -823,5 +823,6 @@ describe("RedisFacadeUtils & RedisFacadeType", () => {
 
     after(async () => {
         await redis.delete("foo");
+        await redis.disconnect();
     });
 });
