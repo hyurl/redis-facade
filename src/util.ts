@@ -34,6 +34,9 @@ export function exec(
 export function createFacadeUtils(redis: RedisClient): RedisFacadeUtils {
     let _exec: (...args: any[]) => Promise<RedisReply> = exec.bind(redis);
     let { redis: _redis, key: _key } = exports;
+    let heartBeat = setInterval(() => {
+        redis.ping();
+    }, 5000);
 
     return {
         is: (ins1: RedisFacade, ins2: RedisFacade) => {
@@ -48,6 +51,7 @@ export function createFacadeUtils(redis: RedisClient): RedisFacadeUtils {
         typeof: (key: string) => _exec("type", key) as Promise<any>,
         disconnect: () => {
             return new Promise<void>((resolve) => {
+                clearInterval(heartBeat);
                 redis.quit(() => resolve());
             });
         }
