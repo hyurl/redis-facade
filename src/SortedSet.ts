@@ -106,11 +106,6 @@ class RedisSortedSet extends RedisFacade implements RedisSortedSetInterface {
         );
     }
 
-    /**
-     * @param {number} start 
-     * @param {number} count 
-     * @returns {Promise<string[]>}
-     */
     async splice(start: number, count = 1) {
         let end = start + count - 1;
         let [values, res] = await this.batch<[string[], number]>(

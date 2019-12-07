@@ -1,8 +1,8 @@
 import * as assert from "assert";
-import { createClient } from "redis";
+// import { createClient } from "redis";
 import createFacade from "../src";
 
-let redis = createFacade(createClient());
+let redis = createFacade();
 
 function sleep(timeout: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, timeout));

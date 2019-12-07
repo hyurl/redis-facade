@@ -1,4 +1,4 @@
-import { RedisClient } from 'redis';
+import { RedisClient, ClientOpts, createClient } from 'redis';
 import createStringFacade from "./String";
 import createListFacade from "./List";
 import createHashMapFacade from "./HashMap";
@@ -7,7 +7,13 @@ import createSortedSetFacade from "./SortedSet";
 import { createFacadeUtils, RedisReply, redis, key } from "./util";
 
 /** Creates a new facade with a redis connection. */
-export default function createRedisFacade(redis: RedisClient): RedisFacadeEntry {
+export default function createRedisFacade(options?: ClientOpts): RedisFacadeEntry;
+export default function createRedisFacade(redis: RedisClient): RedisFacadeEntry;
+export default function createRedisFacade(redis: any): RedisFacadeEntry {
+    if (!redis || redis.constructor === Object) {
+        redis = createClient(redis);
+    }
+
     return Object.assign({
         String: createStringFacade(redis),
         List: createListFacade(redis),
