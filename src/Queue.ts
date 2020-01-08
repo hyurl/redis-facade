@@ -4,6 +4,8 @@ import { RedisQueue as RedisQueueInterface } from "./index";
 import { redis as _redis, key as _key, CommandArguments, createFacadeType } from "./util";
 import sequid from "sequid";
 
+const MessageQueues = new Map<RedisClient, RedisClient>();
+
 export class RedisQueue extends RedisFacade implements RedisQueueInterface {
     private static uids = sequid(0, true);
     private tasks: {
@@ -11,6 +13,29 @@ export class RedisQueue extends RedisFacade implements RedisQueueInterface {
         ttl: number;
         args: any[]
     }[] = [];
+
+    constructor(redis: RedisClient, key: string) {
+        super(redis, key);
+
+        if (!MessageQueues.has(this[_redis])) {
+            let mq = this[_redis].duplicate();
+            let quit = this[_redis].quit;
+
+            MessageQueues.set(this[_redis], mq);
+            mq.subscribe(this[_key]);
+            mq.on("message", (channel) => {
+                if (channel === this[_key]) {
+                    this.tryTask();
+                }
+            });
+            this[_redis].quit = function (cb) {
+                mq.unsubscribe(this[_key]);
+                return mq.quit(() => {
+                    return quit.call(this[_redis], cb);
+                });
+            }
+        }
+    }
 
     static resolve(key: string) {
         return `RedisQueueLock:${key}`;
@@ -21,6 +46,7 @@ export class RedisQueue extends RedisFacade implements RedisQueueInterface {
         ttl = 30,
         ...args: Parameters<T>
     ): Promise<ReturnType<T> extends Promise<infer U> ? U : ReturnType<T>> {
+        let mq = MessageQueues.get(this[_redis]);
         let job = new Promise<any>((resolve, reject) => {
             this.tasks.push({
                 handle: async (...args: any[]) => {
@@ -35,11 +61,11 @@ export class RedisQueue extends RedisFacade implements RedisQueueInterface {
             });
         });
 
-        this.callNext();
+        setImmediate(() => mq.publish(this[_key], "1"));
         return job;
     }
 
-    private async callNext() {
+    private async tryTask() {
         if (this.tasks.length > 0) {
             let value = String(RedisQueue.uids.next().value);
             let args: CommandArguments = [value, "nx"];
@@ -63,7 +89,7 @@ export class RedisQueue extends RedisFacade implements RedisQueueInterface {
                     await this.clear();
                 }
 
-                this.callNext();
+                MessageQueues.get(this[_redis]).publish(this[_key], "1");
             }
         }
     }
