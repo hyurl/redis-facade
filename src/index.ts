@@ -351,8 +351,8 @@ export interface RedisQueue {
     /**
      * Pushes a task into the queue and runs it after the former task is
      * complete.
-     * @param ttl If provided, the queue lock will be force-released after
-     *  timeout.
+     * @param ttl Force release the queue lock after timeout (default: `30`
+     *  seconds).
      * @param args If provided, they will be passed to the task function when it
      *  runs.
      */
