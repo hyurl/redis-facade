@@ -8,6 +8,11 @@ function sleep(timeout: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, timeout));
 }
 
+after(async () => {
+    await redis.delete("foo");
+    await redis.disconnect();
+});
+
 describe("RedisString", () => {
     let str = redis.String.of("foo");
 
@@ -728,6 +733,33 @@ describe("RedisSortedSet", () => {
     });
 });
 
+describe("RedisQueue", () => {
+    let queue = redis.Queue.of("test");
+
+    it("should run two tasks one by one", async () => {
+        let result: number[] = [];
+        let jobs = [
+            queue.run(async () => {
+                await sleep(200);
+                result.push(1);
+                return 1;
+            }),
+            queue.run(() => {
+                // This task will only be run after the above one completes.
+                result.push(2);
+                return 2;
+            })
+        ];
+
+        assert.strictEqual(await redis.Queue.has("test"), true);
+
+        let result2 = await Promise.all(jobs);
+
+        assert.deepStrictEqual(result, [1, 2]);
+        assert.deepStrictEqual(result2, [1, 2]);
+    });
+});
+
 describe("RedisFacadeUtils & RedisFacadeType", () => {
     it("should check if the two facades refer to the same data.", () => {
         assert(redis.is(redis.String.of("foo"), redis.String.of("foo")));
@@ -819,10 +851,5 @@ describe("RedisFacadeUtils & RedisFacadeType", () => {
         await redis.delete("foo");
         await redis.HashMap.of("foo").set("Hello", "World!");
         assert.strictEqual(await redis.HashMap.has("foo"), true);
-    });
-
-    after(async () => {
-        await redis.delete("foo");
-        await redis.disconnect();
     });
 });

@@ -4,6 +4,7 @@ import createListFacade from "./List";
 import createHashMapFacade from "./HashMap";
 import createSetFacade from "./Set";
 import createSortedSetFacade from "./SortedSet";
+import createQueueFacade from "./Queue";
 import { createFacadeUtils, RedisReply, redis, key } from "./util";
 
 /** Creates a new facade with a redis connection. */
@@ -19,7 +20,8 @@ export default function createRedisFacade(redis: any): RedisFacadeEntry {
         List: createListFacade(redis),
         HashMap: createHashMapFacade(redis),
         Set: createSetFacade(redis),
-        SortedSet: createSortedSetFacade(redis)
+        SortedSet: createSortedSetFacade(redis),
+        Queue: createQueueFacade(redis)
     }, createFacadeUtils(redis));
 }
 
@@ -29,6 +31,7 @@ export type RedisFacadeEntry = {
     HashMap: RedisFacadeType<RedisHashMap>,
     Set: RedisFacadeType<RedisSet>,
     SortedSet: RedisFacadeType<RedisSortedSet>,
+    Queue: RedisFacadeType<RedisQueue>
 } & RedisFacadeUtils;
 
 export interface RedisFacadeUtils {
@@ -342,4 +345,20 @@ export interface RedisSortedSet extends RedisCollection {
     spliceByScore(minScore: number, maxScore: number): Promise<string[]>;
     /** Iterates all elements in the list. */
     forEach(fn: (value: string, score: number) => void, thisArg?: any): Promise<void>;
+}
+
+export interface RedisQueue {
+    /**
+     * Pushes a task into the queue and runs it after the former task is
+     * complete.
+     * @param ttl If provided, the queue lock will be force-released after
+     *  timeout.
+     * @param args If provided, they will be passed to the task function when it
+     *  runs.
+     */
+    run<T extends (...args: any[]) => any>(
+        task: T,
+        ttl?: number,
+        ...args: Parameters<T>
+    ): Promise<ReturnType<T> extends Promise<infer U> ? U : ReturnType<T>>;
 }

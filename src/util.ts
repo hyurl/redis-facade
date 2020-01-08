@@ -60,7 +60,7 @@ export function createFacadeUtils(redis: RedisClient): RedisFacadeUtils {
 
 export function createFacadeType<T extends new (...args: any[]) => RedisFacade>(
     type: string,
-    ctor: T,
+    ctor: T & { resolve?: (key: string) => string },
     redis: RedisClient
 ) {
     // Creates a wrapped constructor to prevent conflict, so that every time
@@ -73,10 +73,12 @@ export function createFacadeType<T extends new (...args: any[]) => RedisFacade>(
     });
 
     facade.of = function (key: string) {
+        (typeof ctor["resolve"] === "function") && (key = ctor["resolve"](key));
         return new (<any>facade)(key);
     };
 
     facade.has = function (key) {
+        (typeof ctor["resolve"] === "function") && (key = ctor["resolve"](key));
         return exec.call(redis, "type", key).then(res => res === type);
     };
 

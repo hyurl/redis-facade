@@ -4,7 +4,7 @@ import { RedisString as RedisStringInterface } from ".";
 import { RedisClient } from "redis";
 
 class RedisString extends RedisFacade implements RedisStringInterface {
-    async set(value: string, ttl = -1) {
+    async set(value: string, ttl = 0) {
         if (ttl > 0) {
             await this.exec("setex", ttl, value);
         } else {
