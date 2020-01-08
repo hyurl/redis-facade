@@ -52,7 +52,7 @@ export class RedisQueue extends RedisFacade implements RedisQueueInterface {
                 }
             } catch (e) { }
 
-            this.callNext();
+            setImmediate(() => this.callNext());
         }
     }
 }
