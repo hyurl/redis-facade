@@ -734,9 +734,8 @@ describe("RedisSortedSet", () => {
 });
 
 describe("RedisQueue", () => {
-    let queue = redis.Queue.of("test");
-
     it("should run two tasks one by one", async () => {
+        let queue = redis.Queue.of("test");
         let result: number[] = [];
         let jobs = [
             queue.run(async () => {
@@ -744,24 +743,27 @@ describe("RedisQueue", () => {
                 result.push(1);
                 return 1;
             }),
-            queue.run(() => {
+            queue.run(async () => {
                 // This task will only be run after the above one completes.
                 result.push(2);
                 return 2;
             })
         ];
 
+        await sleep(100);
         assert.strictEqual(await redis.Queue.has("test"), true);
 
         let result2 = await Promise.all(jobs);
 
         assert.deepStrictEqual(result, [1, 2]);
         assert.deepStrictEqual(result2, [1, 2]);
+        assert.strictEqual(await redis.Queue.has("test"), false);
     });
 });
 
 describe("RedisFacadeUtils & RedisFacadeType", () => {
-    it("should check if the two facades refer to the same data.", () => {
+    it("should check if the two facades refer to the same data.", async () => {
+        await new Promise(setImmediate);
         assert(redis.is(redis.String.of("foo"), redis.String.of("foo")));
         assert(redis.is(redis.List.of("foo"), redis.List.of("foo")));
         assert(redis.is(redis.HashMap.of("foo"), redis.HashMap.of("foo")));

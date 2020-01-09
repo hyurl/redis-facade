@@ -4,12 +4,17 @@ import { RedisQueue as RedisQueueInterface } from "./index";
 import { redis as _redis, key as _key, CommandArguments, createFacadeType } from "./util";
 import sequid from "sequid";
 
-const MessageQueues = new Map<RedisClient, RedisClient>();
+const Subscribers = new Map<RedisClient, {
+    client: RedisClient,
+    listeners: (() => void)[]
+}>();
 
 export class RedisQueue extends RedisFacade implements RedisQueueInterface {
     private static uids = sequid(0, true);
     private tasks: {
-        handle: (...args: any[]) => Promise<void>;
+        task: (...args: any[]) => any;
+        resolve: (value: any) => void;
+        reject: (err: Error) => void;
         ttl: number;
         args: any[]
     }[] = [];
@@ -17,20 +22,29 @@ export class RedisQueue extends RedisFacade implements RedisQueueInterface {
     constructor(redis: RedisClient, key: string) {
         super(redis, key);
 
-        if (!MessageQueues.has(this[_redis])) {
-            let mq = this[_redis].duplicate();
+        let subscriber = Subscribers.get(this[_redis]);
+
+        if (subscriber) {
+            subscriber.listeners.push(this.tryTask.bind(this));
+        } else {
+            let sub = this[_redis].duplicate();
+            let listeners: (() => void)[] = [this.tryTask.bind(this)];
             let quit = this[_redis].quit;
 
-            MessageQueues.set(this[_redis], mq);
-            mq.subscribe(this[_key]);
-            mq.on("message", (channel) => {
+            Subscribers.set(this[_redis], { client: sub, listeners });
+            sub.subscribe(this[_key]);
+            sub.once("subscribe", () => {
+                this[_redis].publish(this[_key], "tryTask");
+            }).on("message", (channel) => {
                 if (channel === this[_key]) {
-                    this.tryTask();
+                    for (let handle of listeners) {
+                        try { handle() } catch (e) { }
+                    }
                 }
             });
-            this[_redis].quit = function (cb) {
-                mq.unsubscribe(this[_key]);
-                return mq.quit(() => {
+            this[_redis].quit = (cb) => {
+                sub.unsubscribe(this[_key]);
+                return sub.quit(() => {
                     return quit.call(this[_redis], cb);
                 });
             }
@@ -46,22 +60,17 @@ export class RedisQueue extends RedisFacade implements RedisQueueInterface {
         ttl = 30,
         ...args: Parameters<T>
     ): Promise<ReturnType<T> extends Promise<infer U> ? U : ReturnType<T>> {
-        let mq = MessageQueues.get(this[_redis]);
         let job = new Promise<any>((resolve, reject) => {
             this.tasks.push({
-                handle: async (...args: any[]) => {
-                    try {
-                        resolve(await task.apply(void 0, args));
-                    } catch (err) {
-                        reject(err);
-                    }
-                },
+                task,
+                resolve,
+                reject,
                 ttl,
                 args
             });
         });
 
-        setImmediate(() => mq.publish(this[_key], "1"));
+        this[_redis].publish(this[_key], "tryTask");
         return job;
     }
 
@@ -71,25 +80,31 @@ export class RedisQueue extends RedisFacade implements RedisQueueInterface {
             let args: CommandArguments = [value, "nx"];
             let { ttl } = this.tasks[0];
             ttl > 0 && args.push("ex", ttl);
-            let res = await this.exec("set", ...args);
+            let lock = await this.exec("set", ...args);
 
-            if (res === "OK") {
+            if (lock === "OK") {
+                let { task, args, resolve, reject } = this.tasks.shift();
+
                 try {
-                    let { handle, args } = this.tasks.shift();
-                    await handle.apply(void 0, args);
-                } catch (e) { }
+                    let res = await task.apply(void 0, args);
 
-                // Before release the lock, must check whether the current lock
-                // value is still the same value at the time we set it, since a
-                // later task might gain the lock if the former task didn't
-                // complete in time and was forced to release the lock, we need
-                // to ensure when this former task completes, it will not delete
-                // the lock that was set by the later task.
-                if ((await this.exec("get")) === value) {
-                    await this.clear();
+                    // Before release the lock, must check whether the current
+                    // lock value is still the same value at the time we set it,
+                    // since a later task might gain the lock if the former task
+                    // didn't complete in time and was forced to release the
+                    // lock, we need to ensure when this former task completes,
+                    // it will not delete the lock that was set by the later
+                    // task.
+                    if ((await this.exec("get")) === value) {
+                        await this.clear();
+                    }
+
+                    resolve(res);
+                } catch (err) {
+                    reject(err);
                 }
 
-                MessageQueues.get(this[_redis]).publish(this[_key], "1");
+                this[_redis].publish(this[_key], "tryTask");
             }
         }
     }
