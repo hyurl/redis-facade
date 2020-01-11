@@ -3,59 +3,71 @@ import { RedisFacade } from "./Facade";
 import { RedisMessageQueue as RedisMessageQueueInterface } from "./index";
 import { redis as _redis, key as _key, exec, createFacadeType } from "./util";
 
-const isReady = Symbol("isReady");
 const enablePubSub = Symbol("enablePubSub");
 
 export class RedisMessageQueue extends RedisFacade implements RedisMessageQueueInterface {
     private isReady = false;
     private listeners = new Set<(msg: string) => void>();
     private queuedMessages: string[] = [];
-    private static Queues = new Map<string, {
+    private static PubSubMap = new Map<RedisClient, {
         connection: RedisClient,
-        subscribers: Set<RedisMessageQueue>
+        channels: Map<string, {
+            isReady: boolean,
+            subscribers: Set<RedisMessageQueue>
+        }>
     }>();
 
     constructor(redis: RedisClient, key: string) {
         super(redis, key);
-        let queue = RedisMessageQueue.Queues.get(this[_key]);
+        let sub = RedisMessageQueue.PubSubMap.get(this[_redis]);
 
-        if (queue) {
-            this.isReady = queue.connection[isReady] || false;
-            queue.subscribers.add(this);
-        } else {
-            let connection = this[_redis].duplicate();
-            let subscribers = new Set<RedisMessageQueue>([this]);
-
-            RedisMessageQueue.Queues.set(this[_key], {
-                connection,
-                subscribers
+        if (!sub) { // initiate subscriber connection and channel map
+            RedisMessageQueue.PubSubMap.set(this[_redis], sub = {
+                connection: this[_redis].duplicate(),
+                channels: new Map()
             });
-            connection.subscribe(this[_key]);
-            connection.once("subscribe", () => {
-                connection[isReady] = true;
-                subscribers.forEach(queue => {
-                    queue.isReady = true;
-                });
+            sub.connection.on("subscribe", topic => {
+                let channel = sub.channels.get(topic);
 
-                // Publish queued messages once the subscriber is ready.
-                this.queuedMessages.forEach(msg => {
-                    this[_redis].publish(this[_key], msg);
-                });
-            }).on("message", (channel, msg) => {
-                if (channel === this[_key]) {
-                    subscribers.forEach(queue => {
-                        queue.listeners.forEach(handle => {
-                            try { handle(msg) } catch (e) { }
+                if (channel) {
+                    channel.isReady = true;
+                    channel.subscribers.forEach(subscriber => {
+                        subscriber.isReady = true;
+                        subscriber.queuedMessages.forEach(msg => {
+                            // republish queued messages
+                            subscriber.publish(msg);
                         });
                     });
                 }
+            }).on("message", (topic, msg) => {
+                let channel = sub.channels.get(topic);
+                channel && channel.subscribers.forEach(subscriber => {
+                    subscriber.listeners.forEach(handle => {
+                        try { handle(msg) } catch (e) { }
+                    });
+                });
+            });;
+        }
+
+        let channel = sub.channels.get(this[_key]);
+
+        if (!channel) {
+            sub.connection.subscribe(this[_key]);
+            sub.channels.set(this[_key], channel = {
+                isReady: false,
+                subscribers: new Set()
             });
         }
+
+        this.isReady = channel.isReady;
+        channel.subscribers.add(this);
 
         if (!redis[enablePubSub]) {
             redis[enablePubSub] = true;
             let quit: RedisClient["quit"] = redis.quit.bind(redis);
 
+            // Rewrite the quit method so that when quitting the main connection,
+            // the underlying subscriber connections will be closed as well.
             redis.quit = (cb) => {
                 (async () => {
                     try {
@@ -65,13 +77,16 @@ export class RedisMessageQueue extends RedisFacade implements RedisMessageQueueI
                         });
 
                         // Close subscriber connections and empty queues.
-                        for (let [channel, queue] of RedisMessageQueue.Queues) {
-                            queue.subscribers.forEach(subscriber => {
-                                subscriber.isReady = false;
+                        for (let [redis, sub] of RedisMessageQueue.PubSubMap) {
+                            sub.channels.forEach(channel => {
+                                channel.isReady = false;
+                                channel.subscribers.forEach(subscriber => {
+                                    subscriber.isReady = false;
+                                });
                             });
-                            RedisMessageQueue.Queues.delete(channel);
+                            RedisMessageQueue.PubSubMap.delete(redis);
                             await new Promise((resolve, reject) => {
-                                queue.connection.quit(err => {
+                                sub.connection.quit(err => {
                                     err ? reject(err) : resolve();
                                 });
                             });
