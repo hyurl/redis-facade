@@ -739,7 +739,7 @@ describe("RedisQueue", () => {
         let result: number[] = [];
         let jobs = [
             queue.run(async () => {
-                await sleep(200);
+                await sleep(100);
                 result.push(1);
                 return 1;
             }),
@@ -757,7 +757,28 @@ describe("RedisQueue", () => {
 
         assert.deepStrictEqual(result, [1, 2]);
         assert.deepStrictEqual(result2, [1, 2]);
-        assert.strictEqual(await redis.Queue.has("test"), false);
+    });
+});
+
+describe("RedisMessageQueue", () => {
+    it("should subscribe a message channel and publish a message", async () => {
+        let mq = redis.MessageQueue.of("foo");
+        let result: string;
+
+        mq.addListener(msg => {
+            result = msg;
+        });
+        mq.publish("Hello, World!");
+
+        while (true) {
+            await sleep(50);
+            if (!!result) {
+                break;
+            }
+        }
+
+        assert.strictEqual(result, "Hello, World!");
+        assert.strictEqual(await redis.MessageQueue.has("foo"), true);
     });
 });
 

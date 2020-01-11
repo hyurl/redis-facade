@@ -5,6 +5,7 @@ import createHashMapFacade from "./HashMap";
 import createSetFacade from "./Set";
 import createSortedSetFacade from "./SortedSet";
 import createQueueFacade from "./Queue";
+import createMessageQueue from "./MessageQueue";
 import { createFacadeUtils, RedisReply, redis, key } from "./util";
 
 /** Creates a new facade with a redis connection. */
@@ -21,7 +22,8 @@ export default function createRedisFacade(redis: any): RedisFacadeEntry {
         HashMap: createHashMapFacade(redis),
         Set: createSetFacade(redis),
         SortedSet: createSortedSetFacade(redis),
-        Queue: createQueueFacade(redis)
+        Queue: createQueueFacade(redis),
+        MessageQueue: createMessageQueue(redis)
     }, createFacadeUtils(redis));
 }
 
@@ -31,7 +33,8 @@ export type RedisFacadeEntry = {
     HashMap: RedisFacadeType<RedisHashMap>,
     Set: RedisFacadeType<RedisSet>,
     SortedSet: RedisFacadeType<RedisSortedSet>,
-    Queue: RedisFacadeType<RedisQueue>
+    Queue: RedisFacadeType<RedisQueue>,
+    MessageQueue: RedisFacadeType<RedisMessageQueue>
 } & RedisFacadeUtils;
 
 export interface RedisFacadeUtils {
@@ -53,9 +56,21 @@ export interface RedisFacadeUtils {
 
 export interface RedisFacadeType<T> {
     readonly prototype: T;
-    /** Creates a facade instance and associates to a key in Redis store. */
+    /**
+     * Creates a facade instance and associates to a key in Redis store.
+     * 
+     * NOTE: If the facade is a `RedisQueue`, the key will be used for the lock;
+     * if the facade is a `RedisMessageQueue`, the key will be used as the
+     * channel name.
+     */
     of(key: string): T;
-    /** Checks if a key exists in Redis store and is of the current type. */
+    /**
+     * Checks if a key exists in Redis store and is of the current type.
+     * 
+     * NOTE: If the facade is a `RedisQueue`, the key will be used for the lock;
+     * if the facade is a `RedisMessageQueue`, the key will be used as the
+     * channel name.
+     */
     has(key: string): Promise<boolean>;
 }
 
@@ -361,4 +376,13 @@ export interface RedisQueue {
         ttl?: number,
         ...args: Parameters<T>
     ): Promise<ReturnType<T> extends Promise<infer U> ? U : ReturnType<T>>;
+}
+
+export interface RedisMessageQueue {
+    /** Adds a listener function to the message queue. */
+    addListener(listener: (msg: string) => void): this;
+    /** Adds the listener function from the message queue. */
+    removeListener(listener: (msg: string) => void): boolean;
+    /** Publishes a message to the message queue. */
+    publish(msg: string): boolean;
 }

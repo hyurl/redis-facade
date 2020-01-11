@@ -1,15 +1,10 @@
-import { RedisClient } from "redis";
-import { RedisFacade } from "./Facade";
-import { RedisQueue as RedisQueueInterface } from "./index";
-import { redis as _redis, key as _key, CommandArguments, createFacadeType } from "./util";
 import sequid from "sequid";
+import { RedisClient } from "redis";
+import { RedisMessageQueue } from "./MessageQueue";
+import { RedisQueue as RedisQueueInterface } from "./index";
+import { CommandArguments, createFacadeType } from "./util";
 
-const Subscribers = new Map<RedisClient, {
-    client: RedisClient,
-    listeners: (() => void)[]
-}>();
-
-export class RedisQueue extends RedisFacade implements RedisQueueInterface {
+export class RedisQueue extends RedisMessageQueue implements RedisQueueInterface {
     private static uids = sequid(0, true);
     private tasks: {
         task: (...args: any[]) => any;
@@ -21,38 +16,9 @@ export class RedisQueue extends RedisFacade implements RedisQueueInterface {
 
     constructor(redis: RedisClient, key: string) {
         super(redis, key);
-
-        let subscriber = Subscribers.get(this[_redis]);
-
-        if (subscriber) {
-            subscriber.listeners.push(this.tryTask.bind(this));
-        } else {
-            let sub = this[_redis].duplicate();
-            let listeners: (() => void)[] = [this.tryTask.bind(this)];
-            let quit = this[_redis].quit;
-
-            Subscribers.set(this[_redis], { client: sub, listeners });
-            sub.subscribe(this[_key]);
-            sub.once("subscribe", () => {
-                this[_redis].publish(this[_key], "tryTask");
-            }).on("message", (channel) => {
-                if (channel === this[_key]) {
-                    for (let handle of listeners) {
-                        try { handle() } catch (e) { }
-                    }
-                }
-            });
-            this[_redis].quit = (cb) => {
-                sub.unsubscribe(this[_key]);
-                return sub.quit(() => {
-                    return quit.call(this[_redis], cb);
-                });
-            }
-        }
-    }
-
-    static resolve(key: string) {
-        return `RedisQueueLock:${key}`;
+        this.addListener((msg) => {
+            msg === "tryTask" && this.tryTask();
+        });
     }
 
     async run<T extends (...args: any[]) => any>(
@@ -70,7 +36,7 @@ export class RedisQueue extends RedisFacade implements RedisQueueInterface {
             });
         });
 
-        this[_redis].publish(this[_key], "tryTask");
+        this.publish("tryTask");
         return job;
     }
 
@@ -104,12 +70,20 @@ export class RedisQueue extends RedisFacade implements RedisQueueInterface {
                     reject(err);
                 }
 
-                this[_redis].publish(this[_key], "tryTask");
+                this.publish("tryTask");
             }
         }
+    }
+
+    static of(redis: RedisClient, key: string) {
+        return new RedisQueue(redis, `redisQueueLock:${key}`);
+    }
+
+    static async has(redis: RedisClient, key: string) {
+        return RedisMessageQueue.has(redis, `redisQueueLock:${key}`);
     }
 }
 
 export default function (redis: RedisClient) {
-    return createFacadeType("string", RedisQueue, redis);
+    return createFacadeType("none", RedisQueue, redis);
 }
