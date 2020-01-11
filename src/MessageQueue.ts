@@ -8,7 +8,7 @@ const enablePubSub = Symbol("enablePubSub");
 export class RedisMessageQueue extends RedisFacade implements RedisMessageQueueInterface {
     private isReady = false;
     private listeners = new Set<(msg: string) => void>();
-    private queuedMessages: string[] = [];
+    private waitingMessages: string[] = [];
     private static PubSubMap = new Map<RedisClient, {
         connection: RedisClient,
         channels: Map<string, {
@@ -33,7 +33,7 @@ export class RedisMessageQueue extends RedisFacade implements RedisMessageQueueI
                     channel.isReady = true;
                     channel.subscribers.forEach(subscriber => {
                         subscriber.isReady = true;
-                        subscriber.queuedMessages.forEach(msg => {
+                        subscriber.waitingMessages.forEach(msg => {
                             // republish queued messages
                             subscriber.publish(msg);
                         });
@@ -116,7 +116,7 @@ export class RedisMessageQueue extends RedisFacade implements RedisMessageQueueI
         if (this.isReady) {
             return this[_redis].publish(this[_key], msg);
         } else {
-            this.queuedMessages.push(msg);
+            this.waitingMessages.push(msg);
             return true;
         }
     }
