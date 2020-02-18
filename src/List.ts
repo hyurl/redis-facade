@@ -10,7 +10,10 @@ class RedisList extends RedisFacade implements RedisListInterface {
         return this.exec<string>("lpop");
     }
 
-    unshift(...values: string[]) {
+    async unshift(...values: string[]) {
+        if (isEmpty(values))
+            return 0;
+
         return this.exec<number>("lpush", ...values.reverse());
     }
 
@@ -18,7 +21,10 @@ class RedisList extends RedisFacade implements RedisListInterface {
         return this.exec<string>("rpop");
     }
 
-    push(...values: string[]) {
+    async push(...values: string[]) {
+        if (isEmpty(values))
+            return 0;
+
         return this.exec<number>("rpush", ...values);
     }
 
@@ -50,11 +56,16 @@ class RedisList extends RedisFacade implements RedisListInterface {
     }
 
     async concat(...values: (string | string[])[]) {
-        let [, value] = await this.batch<[number, string[]]>(
-            ["rpush", ...[].concat(values)],
-            ["lrange", 0, -1]
-        );
-        return value;
+        values = [].concat(values);
+
+        if (!isEmpty(values)) {
+            [, values] = await this.batch<[number, string[]]>(
+                ["rpush", ...<string[]>values],
+                ["lrange", 0, -1]
+            );
+        }
+
+        return values as string[];
     }
 
     values() {
@@ -127,7 +138,11 @@ class RedisList extends RedisFacade implements RedisListInterface {
 
     async reverse() {
         let values = (await this.values()).reverse();
-        await this.batch(["del"], ["rpush", ...values]);
+
+        if (!isEmpty(values)) {
+            await this.batch(["del"], ["rpush", ...values]);
+        }
+
         return values;
     }
 

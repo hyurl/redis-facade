@@ -2,14 +2,21 @@ import { RedisFacade } from "./Facade";
 import { createFacadeType, key } from "./util";
 import { RedisSet as RedisSetInterface } from ".";
 import { RedisClient } from "redis";
+import isEmpty from '@hyurl/utils/isEmpty';
 
 class RedisSet extends RedisFacade implements RedisSetInterface {
     async add(...values: string[]) {
-        await this.exec<number>("sadd", ...values);
+        if (!isEmpty(values)) {
+            await this.exec<number>("sadd", ...values);
+        }
+
         return this;
     }
 
     async delete(...values: string[]) {
+        if (isEmpty(values))
+            return false;
+
         return (await this.exec<number>("srem", ...values)) > 0;
     }
 
@@ -62,15 +69,24 @@ class RedisSet extends RedisFacade implements RedisSetInterface {
         }
     }
 
-    difference(...sets: RedisSetInterface[]) {
+    async difference(...sets: RedisSetInterface[]) {
+        if (isEmpty(sets))
+            return [];
+
         return this.exec<string[]>("sdiff", ...sets.map(set => set[key]));
     }
 
-    intersection(...sets: RedisSetInterface[]) {
+    async intersection(...sets: RedisSetInterface[]) {
+        if (isEmpty(sets))
+            return [];
+
         return this.exec<string[]>("sinter", ...sets.map(set => set[key]));
     }
 
-    union(...sets: RedisSetInterface[]) {
+    async union(...sets: RedisSetInterface[]) {
+        if (isEmpty(sets))
+            return [];
+
         return this.exec<string[]>("sunion", ...sets.map(set => set[key]));
     }
 }

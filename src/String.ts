@@ -4,6 +4,7 @@ import { RedisString as RedisStringInterface } from ".";
 import { RedisClient } from "redis";
 import isVoid from "@hyurl/utils/isVoid";
 import isFloat from "@hyurl/utils/isFloat";
+import isEmpty from '@hyurl/utils/isEmpty';
 
 class RedisString extends RedisFacade implements RedisStringInterface {
     async set(value: string, ttl = 0) {
@@ -67,6 +68,9 @@ class RedisString extends RedisFacade implements RedisStringInterface {
     }
 
     async append(...strings: string[]) {
+        if (isEmpty(strings))
+            return this.get();
+
         let [, result] = await this.batch(["append", strings.join("")], ["get"]);
         return result as string;
     }

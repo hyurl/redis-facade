@@ -3,6 +3,7 @@ import { createFacadeType, isRedisV5, redis } from "./util";
 import { RedisSortedSet as RedisSortedSetInterface } from ".";
 import { RedisClient } from "redis";
 import isVoid from "@hyurl/utils/isVoid";
+import isEmpty from '@hyurl/utils/isEmpty';
 
 class RedisSortedSet extends RedisFacade implements RedisSortedSetInterface {
     async add(value: string | { [value: string]: number; }, score = 0) {
@@ -22,6 +23,9 @@ class RedisSortedSet extends RedisFacade implements RedisSortedSetInterface {
     }
 
     async delete(...values: string[]) {
+        if (isEmpty(values))
+            return false;
+
         return (await this.exec("zrem", ...values)) > 0;
     }
 
