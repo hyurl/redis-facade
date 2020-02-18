@@ -97,7 +97,11 @@ class RedisList extends RedisFacade implements RedisListInterface {
 
             let [removed] = await this.batch(...commands);
 
-            return Array.isArray(removed) ? removed : [removed] as string[];
+            if (isVoid(removed)) {
+                return [];
+            } else {
+                return Array.isArray(removed) ? removed : [removed] as string[];
+            }
         } else {
             let values = await this.values();
             let removed = values.splice(start, count, ...items);
