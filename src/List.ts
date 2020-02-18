@@ -70,30 +70,46 @@ class RedisList extends RedisFacade implements RedisListInterface {
     }
 
     async splice(start: number, count = 1, ...items: string[]) {
-        if (isEmpty(items)) {
-            if (start === 0) {
-                if (count === 1) {
-                    return [await this.shift()];
-                } else {
-                    let [removed] = await this.batch(
-                        ["lrange", start, count === 0 ? 0 : count - 1],
-                        ["ltrim", count, -1]
-                    );
-                    return removed as string[];
+        if (count < 0)
+            throw new RangeError("'count' must be equal to or greater than 0");
+
+        if (start === 0) {
+            let commands: (string | number)[][] = [];
+
+            if (count === 0) {
+                if (!isEmpty(items)) {
+                    await this.unshift(...items);
                 }
+
+                return [];
+            } else if (count === 1) {
+                commands.push(["lpop"]);
+            } else {
+                commands.push(
+                    ["lrange", start, count === 0 ? 0 : count - 1],
+                    ["ltrim", count, -1]
+                );
             }
-        }
 
-        let values = await this.values();
-        let removed = values.splice(start, count, ...items);
+            if (!isEmpty(items)) {
+                commands.push(["lpush", ...[...items].reverse()]);
+            }
 
-        if (isEmpty(values)) {
-            await this.clear();
+            let [removed] = await this.batch(...commands);
+
+            return Array.isArray(removed) ? removed : [removed] as string[];
         } else {
-            await this.batch(["del"], ["rpush", ...values]);
-        }
+            let values = await this.values();
+            let removed = values.splice(start, count, ...items);
 
-        return removed;
+            if (isEmpty(values)) {
+                await this.clear();
+            } else {
+                await this.batch(["del"], ["rpush", ...values]);
+            }
+
+            return removed;
+        }
     }
 
     async sort(order: 1 | -1 = 1) {
