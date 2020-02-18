@@ -3,6 +3,7 @@ import { createFacadeType, key } from "./util";
 import { RedisList as RedisListInterface } from ".";
 import { RedisClient } from "redis";
 import isVoid from "@hyurl/utils/isVoid";
+import isEmpty from "@hyurl/utils/isEmpty";
 
 class RedisList extends RedisFacade implements RedisListInterface {
     shift() {
@@ -69,9 +70,29 @@ class RedisList extends RedisFacade implements RedisListInterface {
     }
 
     async splice(start: number, count = 1, ...items: string[]) {
+        if (isEmpty(items)) {
+            if (start === 0) {
+                if (count === 1) {
+                    return [await this.shift()];
+                } else {
+                    let [removed] = await this.batch(
+                        ["lrange", start, count === 0 ? 0 : count - 1],
+                        ["ltrim", count, -1]
+                    );
+                    return removed as string[];
+                }
+            }
+        }
+
         let values = await this.values();
         let removed = values.splice(start, count, ...items);
-        await this.batch(["del"], ["rpush", ...values]);
+
+        if (isEmpty(values)) {
+            await this.clear();
+        } else {
+            await this.batch(["del"], ["rpush", ...values]);
+        }
+
         return removed;
     }
 
