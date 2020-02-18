@@ -1,7 +1,8 @@
 import { RedisFacade } from "./Facade";
-import { createFacadeType, isVoid, key } from "./util";
+import { createFacadeType, key } from "./util";
 import { RedisList as RedisListInterface } from ".";
 import { RedisClient } from "redis";
+import isVoid from "@hyurl/utils/isVoid";
 
 class RedisList extends RedisFacade implements RedisListInterface {
     shift() {

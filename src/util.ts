@@ -7,14 +7,6 @@ export const redis = Symbol("RedisClient");
 export type CommandArguments = (string | number | object)[];
 export type RedisReply = string | number | string[];
 
-export function isVoid(value: any) {
-    return value === null || value === undefined;
-}
-
-export function isFloat(num: any) {
-    return typeof num === "number" && num % 1 !== 0;
-}
-
 export function isRedisV5(redis: RedisClient) {
     return parseInt(redis.server_info.redis_version) >= 5;
 }

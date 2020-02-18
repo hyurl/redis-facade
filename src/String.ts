@@ -1,7 +1,9 @@
 import { RedisFacade } from "./Facade";
-import { createFacadeType, isVoid, isFloat } from "./util";
+import { createFacadeType } from "./util";
 import { RedisString as RedisStringInterface } from ".";
 import { RedisClient } from "redis";
+import isVoid from "@hyurl/utils/isVoid";
+import isFloat from "@hyurl/utils/isFloat";
 
 class RedisString extends RedisFacade implements RedisStringInterface {
     async set(value: string, ttl = 0) {

@@ -1,7 +1,8 @@
 import { RedisFacade } from "./Facade";
-import { createFacadeType, isFloat } from "./util";
+import { createFacadeType } from "./util";
 import { RedisHashMap as RedisHashMapInterface } from ".";
 import { RedisClient } from "redis";
+import isFloat from "@hyurl/utils/isFloat";
 
 class RedisHashMap extends RedisFacade implements RedisHashMapInterface {
     async set(key: string | object, value: string = undefined) {

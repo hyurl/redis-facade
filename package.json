@@ -28,6 +28,7 @@
   },
   "homepage": "https://github.com/hyurl/redis-facade#readme",
   "dependencies": {
+    "@hyurl/utils": "^0.1.11",
     "@types/redis": "^2.8.14",
     "redis": "^2.8.0",
     "sequid": "^1.0.1",

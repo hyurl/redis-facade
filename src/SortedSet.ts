@@ -1,7 +1,8 @@
 import { RedisFacade } from "./Facade";
-import { createFacadeType, isVoid, isRedisV5, redis } from "./util";
+import { createFacadeType, isRedisV5, redis } from "./util";
 import { RedisSortedSet as RedisSortedSetInterface } from ".";
 import { RedisClient } from "redis";
+import isVoid from "@hyurl/utils/isVoid";
 
 class RedisSortedSet extends RedisFacade implements RedisSortedSetInterface {
     async add(value: string | { [value: string]: number; }, score = 0) {
