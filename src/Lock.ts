@@ -5,7 +5,7 @@ import { CommandArguments, exec, createFacadeType } from "./util";
 
 export class RedisLock extends RedisFacade implements RedisLockInterface {
     async acquire(ttl = 0) {
-        let args: CommandArguments = ["nx"];
+        let args: CommandArguments = [1, "nx"];
         ttl > 0 && args.push("ex", ttl);
         return "OK" === (await this.exec<string>("set", ...args));
     }
