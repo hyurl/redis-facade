@@ -733,6 +733,33 @@ describe("RedisSortedSet", () => {
     });
 });
 
+describe("RedisLock", () => {
+    it("should lock the key and release it", async () => {
+        let key = "lockTest";
+        let lock = redis.Lock.of(key);
+
+        assert.strictEqual(true, await lock.acquire());
+        assert.strictEqual(false, await lock.acquire());
+        assert.strictEqual(true, await redis.Lock.has(key));
+
+        await lock.release();
+        assert.strictEqual(false, await redis.Lock.has(key));
+        assert.strictEqual(true, await lock.acquire());
+        await lock.release();
+    });
+
+    it("should lock the key the force to release after timeout", async () => {
+        let key = "lockTest";
+        let lock = redis.Lock.of(key);
+
+        assert.strictEqual(true, await lock.acquire(1));
+        
+        await sleep(1005);
+        assert.strictEqual(true, await lock.acquire());
+        await lock.release();
+    });
+});
+
 describe("RedisQueue", () => {
     it("should run two tasks one by one", async () => {
         let queue = redis.Queue.of("test");

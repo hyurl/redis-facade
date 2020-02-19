@@ -4,6 +4,7 @@ import createListFacade from "./List";
 import createHashMapFacade from "./HashMap";
 import createSetFacade from "./Set";
 import createSortedSetFacade from "./SortedSet";
+import createLockFacade from "./Lock";
 import createQueueFacade from "./Queue";
 import createMessageQueue from "./MessageQueue";
 import { createFacadeUtils, RedisReply, redis, key } from "./util";
@@ -22,6 +23,7 @@ export default function createRedisFacade(redis: any): RedisFacadeEntry {
         HashMap: createHashMapFacade(redis),
         Set: createSetFacade(redis),
         SortedSet: createSortedSetFacade(redis),
+        Lock: createLockFacade(redis),
         Queue: createQueueFacade(redis),
         MessageQueue: createMessageQueue(redis)
     }, createFacadeUtils(redis));
@@ -33,6 +35,7 @@ export type RedisFacadeEntry = {
     HashMap: RedisFacadeType<RedisHashMap>,
     Set: RedisFacadeType<RedisSet>,
     SortedSet: RedisFacadeType<RedisSortedSet>,
+    Lock: RedisFacadeType<RedisLock>,
     Queue: RedisFacadeType<RedisQueue>,
     MessageQueue: RedisFacadeType<RedisMessageQueue>
 } & RedisFacadeUtils;
@@ -103,7 +106,7 @@ export interface RedisFacade {
 
 /**
  * Unlike the JavaScript string literal, a RedisString instance is mutable,
- * unless pointing out, many monipulation methods of this type will modified the
+ * unless pointing out, many manipulation methods of this type will modified the
  * value in the Redis store.
  */
 export interface RedisString extends RedisFacade {
@@ -362,12 +365,22 @@ export interface RedisSortedSet extends RedisCollection {
     forEach(fn: (value: string, score: number) => void, thisArg?: any): Promise<void>;
 }
 
+export interface RedisLock {
+    /**
+     * Try to gain the lock on the current key.
+     * @param ttl Force to release after timeout (in seconds).
+     */
+    acquire(ttl?: number): Promise<boolean>;
+    /** Releases the lock on the current key. */
+    release(): Promise<void>;
+}
+
 export interface RedisQueue {
     /**
      * Pushes a task into the queue and runs it after the former task is
      * complete.
-     * @param ttl Force release the queue lock after timeout (default: `30`
-     *  seconds).
+     * @param ttl Force to release the lock after timeout (in seconds, default:
+     *  `30`).
      * @param args If provided, they will be passed to the task function when it
      *  runs.
      */
