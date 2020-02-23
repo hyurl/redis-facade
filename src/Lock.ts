@@ -15,11 +15,11 @@ export class RedisLock extends RedisFacade implements RedisLockInterface {
     }
 
     static of(redis: RedisClient, key: string) {
-        return new RedisLock(redis, `redisLock:${key}`);
+        return new RedisLock(redis, `RedisLock:${key}`);
     }
 
     static async has(redis: RedisClient, key: string) {
-        return 1 === (await exec.call(redis, "exists", `redisLock:${key}`));
+        return 1 === (await exec(redis, "exists", `RedisLock:${key}`));
     }
 }
 

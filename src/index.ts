@@ -412,7 +412,7 @@ export interface RedisThrottle {
         ...args: A
     ): Promise<T>;
 
-    /** Clears the cache as well as the internal lock, if they exist. */
+    /** Clears the cached result of the current key. */
     clear(): Promise<void>;
 }
 

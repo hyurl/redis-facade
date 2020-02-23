@@ -2,13 +2,12 @@ import timestamp from "@hyurl/utils/timestamp";
 import { serialize, deserialize } from "@hyurl/structured-clone";
 import { RedisClient } from "redis";
 import { RedisMessageQueue } from "./MessageQueue";
-import { RedisLock } from "./Lock";
 import { RedisThrottle as RedisThrottleInterface } from "./index";
-import { exec, redis, key as _key, createFacadeType } from "./util";
+import { redis, key as _key, exec, batch, createFacadeType } from "./util";
 
 export class RedisThrottle extends RedisMessageQueue implements RedisThrottleInterface {
-    private cacheKey: string;
-    private lock: RedisLock;
+    private lockKey = this[_key].replace("RedisThrottle", "RedisThrottleLock");
+    private cacheKey = this[_key].replace("RedisThrottle", "RedisThrottleCache");
     private queue = new Set<{
         resolve: (value: any) => void,
         reject: (err: any) => void
@@ -17,9 +16,6 @@ export class RedisThrottle extends RedisMessageQueue implements RedisThrottleInt
     constructor(redis: RedisClient, key: string) {
         super(redis, key);
 
-        this.lock = RedisLock.of(redis, key);
-        this.cacheKey = this[_key].replace(
-            "RedisThrottle:", "RedisThrottleCache:");
         this.addListener((msg: string) => {
             try {
                 let data: { value: any, error: any } = deserialize(msg);
@@ -50,15 +46,28 @@ export class RedisThrottle extends RedisMessageQueue implements RedisThrottleInt
         let now = timestamp();
         let cache: { value: T, error: any };
 
-        if (now - (await this.getLastActiveTime()) >= ttl) {
-            // Since retrieving and updating the lastActiveTime is asynchronous,
-            // so we use a lock to provide an atomic operation between all
-            // the tasks.
-            if (await this.lock.acquire()) {
-                await this.setLastActiveTime(now, ttl);
+        // Since retrieving and updating the lastActiveTime is asynchronous,
+        // so we use a lock to provide an atomic operation between all the tasks.
+        let [lastActiveTime, lock] = await batch<[string, string]>(this[redis],
+            ["get", this[_key]], // get lastActiveTime
+            ["set", this.lockKey, 1, "nx"] // acquire lock
+        );
 
-                // Release the lock once the lastActiveTime has been updated.
-                await this.lock.release();
+        if (now - Number(lastActiveTime || 0) >= ttl) {
+            if (lock === "OK") {
+                await batch(this[redis],
+                    // Update lastActiveTime
+                    // In this throttle implementation, the minimal time unit is
+                    // second, when a task/thread gets the current timestamp, it
+                    // may be smaller or bigger than the one actually used in
+                    // the Redis server, adding an extra second for expiration
+                    // is meant to ensure that the cached data will always be
+                    // available when the task/thread trying to retrieve it
+                    // according to the task/thread's timestamp.
+                    ["set", this[_key], now, "ex", ttl + 1],
+                    ["del", this.cacheKey], // delete cache
+                    ["del", this.lockKey] // release lock
+                );
 
                 let result: T;
                 let error: any = null;
@@ -92,38 +101,23 @@ export class RedisThrottle extends RedisMessageQueue implements RedisThrottleInt
 
     /** @override */
     async clear() {
-        await Promise.all([
-            super.clear(),
-            exec.call(this[redis], "del", this.cacheKey)
-        ]);
-    }
-
-    private async getLastActiveTime() {
-        return Number(await this.exec("get") || 0);
-    }
-
-    private async setLastActiveTime(now: number, ttl: number) {
-        await Promise.all([
-            this.exec("set", now, "ex", ttl + 1),
-            exec.call(this[redis], "del", this.cacheKey)
-        ]);
+        await batch(this[redis],
+            ["del", this[_key]], // delete lastActiveTime
+            ["del", this.cacheKey], // delete cache
+            ["del", this.lockKey] // release lock
+        );
     }
 
     private async getCache(): Promise<{ value: any, error: any }> {
-        let cache = await exec.call(this[redis], "get", this.cacheKey);
+        let cache = await exec<string>(this[redis], "get", this.cacheKey);
         return cache ? deserialize(cache) : null;
     }
 
     private async setCache(value: any, error: any, ttl: number) {
         let data = serialize({ value, error });
-        await exec.call(
-            this[redis],
-            "set",
-            this.cacheKey,
-            data,
-            "ex",
-            ttl + 1 // delay 1 seconds for data to expire
-        );
+
+        // Add an extra seconds for data to expire.
+        await exec(this[redis], "set", this.cacheKey, data, "ex", ttl + 1);
 
         // Publish the data to the message queue so that pending tasks can
         // receive the data and complete the task with the newest result.

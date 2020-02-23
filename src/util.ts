@@ -11,20 +11,31 @@ export function isRedisV5(redis: RedisClient) {
     return parseInt(redis.server_info.redis_version) >= 5;
 }
 
-export function exec(
-    this: RedisClient,
+export function exec<T = RedisReply>(
+    redis: RedisClient,
     cmd: string,
-    ...args: string[]
-): Promise<RedisReply> {
-    return new Promise((resolve, reject) => {
-        this[cmd](...args, (err: Error, res: RedisReply) => {
-            err ? reject(err) : resolve(res);
+    ...args: CommandArguments
+): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        redis[cmd](...args, (err: Error, res: RedisReply) => {
+            err ? reject(err) : resolve(res as any);
         });
     });
 };
 
+export function batch<T = RedisReply[]>(
+    redis: RedisClient,
+    ...cmds: (string | number)[][]
+): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        redis.multi(cmds).exec_atomic((err: Error, res: RedisReply[]) => {
+            err ? reject(err) : resolve(res as any);
+        });
+    });
+}
+
 export function createFacadeUtils(redis: RedisClient): RedisFacadeUtils {
-    let _exec: (...args: any[]) => Promise<RedisReply> = exec.bind(redis);
+    let _exec: (...args: any[]) => Promise<RedisReply> = exec.bind(redis, redis);
     let { redis: _redis, key: _key } = exports;
     let heartBeat = setInterval(() => {
         redis.ping();
@@ -79,7 +90,7 @@ export function createFacadeType<T extends new (...args: any[]) => RedisFacade>(
         if (typeof ctor.has === "function") {
             return ctor.has(redis, key);
         } else {
-            return type === (await exec.call(redis, "type", key));
+            return type === (await exec(redis, "type", key));
         }
     };
 

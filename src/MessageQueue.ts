@@ -122,7 +122,7 @@ export class RedisMessageQueue extends RedisFacade implements RedisMessageQueueI
     }
 
     static async has(redis: RedisClient, key: string) {
-        let channels: any[] = await exec.call(redis, "pubsub", "channels");
+        let channels = await exec<string[]>(redis, "pubsub", "channels");
         return channels.includes(key);
     }
 }
