@@ -76,11 +76,11 @@ export class RedisQueue extends RedisMessageQueue implements RedisQueueInterface
     }
 
     static of(redis: RedisClient, key: string) {
-        return new RedisQueue(redis, `redisQueueLock:${key}`);
+        return new RedisQueue(redis, `RedisQueue:${key}`);
     }
 
     static async has(redis: RedisClient, key: string) {
-        return RedisMessageQueue.has(redis, `redisQueueLock:${key}`);
+        return RedisMessageQueue.has(redis, `RedisQueue:${key}`);
     }
 }
 

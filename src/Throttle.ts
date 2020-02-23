@@ -1,11 +1,14 @@
 import timestamp from "@hyurl/utils/timestamp";
+import { serialize, deserialize } from "@hyurl/structured-clone";
 import { RedisClient } from "redis";
 import { RedisMessageQueue } from "./MessageQueue";
+import { RedisLock } from "./Lock";
 import { RedisThrottle as RedisThrottleInterface } from "./index";
-import { exec, redis, createFacadeType } from "./util";
+import { exec, redis, key as _key, createFacadeType } from "./util";
 
 export class RedisThrottle extends RedisMessageQueue implements RedisThrottleInterface {
     private cacheKey: string;
+    private lock: RedisLock;
     private queue = new Set<{
         resolve: (value: any) => void,
         reject: (err: any) => void
@@ -14,11 +17,12 @@ export class RedisThrottle extends RedisMessageQueue implements RedisThrottleInt
     constructor(redis: RedisClient, key: string) {
         super(redis, key);
 
-        this.cacheKey = this[key].replace(
-            "redisThrottleLock:", "redisThrottleCache:");
+        this.lock = RedisLock.of(redis, key);
+        this.cacheKey = this[_key].replace(
+            "RedisThrottle:", "RedisThrottleCache:");
         this.addListener((msg: string) => {
             try {
-                let data: { value: any, error: any } = JSON.parse(msg);
+                let data: { value: any, error: any } = deserialize(msg);
 
                 // Once received the newest data, immediately complete the
                 // queued tasks with the result.
@@ -48,11 +52,13 @@ export class RedisThrottle extends RedisMessageQueue implements RedisThrottleInt
 
         if (now - (await this.getLastActiveTime()) >= ttl) {
             // Since retrieving and updating the lastActiveTime is asynchronous,
-            // so we use the `setLastActiveTime()`to start the competition for
-            // acquiring a lock, so that only one task will gain that lock which
-            // will provide an atomic operation between all the tasks.
-            if (await this.setLastActiveTime(now, ttl)) {
-                await this.clearCache(); // clear cache immediately
+            // so we use a lock to provide an atomic operation between all
+            // the tasks.
+            if (await this.lock.acquire()) {
+                await this.setLastActiveTime(now, ttl);
+
+                // Release the lock once the lastActiveTime has been updated.
+                await this.lock.release();
 
                 let result: T;
                 let error: any = null;
@@ -63,8 +69,6 @@ export class RedisThrottle extends RedisMessageQueue implements RedisThrottleInt
                 } catch (err) {
                     await this.setCache(void 0, error = err, ttl);
                 }
-
-                await super.clear(); // release the lock
 
                 if (error !== null)
                     throw error;
@@ -88,36 +92,37 @@ export class RedisThrottle extends RedisMessageQueue implements RedisThrottleInt
 
     /** @override */
     async clear() {
-        await super.clear(); // release the lock
-        await this.clearCache();
+        await Promise.all([
+            super.clear(),
+            exec.call(this[redis], "del", this.cacheKey)
+        ]);
     }
 
     private async getLastActiveTime() {
-        return Number((await this.exec("get")) || 0);
+        return Number(await this.exec("get") || 0);
     }
 
     private async setLastActiveTime(now: number, ttl: number) {
-        return "OK" === (await this.exec("set", now, "nx", "ex", ttl + 5));
+        await Promise.all([
+            this.exec("set", now, "ex", ttl + 1),
+            exec.call(this[redis], "del", this.cacheKey)
+        ]);
     }
 
     private async getCache(): Promise<{ value: any, error: any }> {
         let cache = await exec.call(this[redis], "get", this.cacheKey);
-        return cache ? JSON.parse(cache) : null;
-    }
-
-    private async clearCache() {
-        await exec.call(this[redis], "del", this.cacheKey);
+        return cache ? deserialize(cache) : null;
     }
 
     private async setCache(value: any, error: any, ttl: number) {
-        let data = JSON.stringify({ value, error });
+        let data = serialize({ value, error });
         await exec.call(
             this[redis],
             "set",
             this.cacheKey,
             data,
             "ex",
-            ttl + 5 // delay 5 seconds for data to expire
+            ttl + 1 // delay 1 seconds for data to expire
         );
 
         // Publish the data to the message queue so that pending tasks can
@@ -132,11 +137,11 @@ export class RedisThrottle extends RedisMessageQueue implements RedisThrottleInt
     }
 
     static of(redis: RedisClient, key: string) {
-        return new RedisThrottle(redis, `redisThrottleLock:${key}`);
+        return new RedisThrottle(redis, `RedisThrottle:${key}`);
     }
 
     static async has(redis: RedisClient, key: string) {
-        return RedisMessageQueue.has(redis, `redisThrottleLock:${key}`);
+        return RedisMessageQueue.has(redis, `RedisThrottle:${key}`);
     }
 }
 

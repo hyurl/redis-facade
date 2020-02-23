@@ -1,5 +1,6 @@
+import "source-map-support/register";
 import * as assert from "assert";
-// import { createClient } from "redis";
+import { format } from "util";
 import createFacade from "../src";
 
 let redis = createFacade();
@@ -803,12 +804,13 @@ describe("RedisThrottle", () => {
         await throttle.clear();
     });
 
-    it("should pend multiple tasks and run them accordingly", async () => {
+    it("should pend multiple tasks and run them accordingly", async function () {
+        this.timeout(15000);
         let throttle = redis.Throttle.of("test");
         let count = 0;
         let result = [];
 
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 3; i++) {
             result.push(await throttle.run(async (firstName, lastName) => {
                 count++;
                 return firstName + " " + lastName;
@@ -816,12 +818,13 @@ describe("RedisThrottle", () => {
             await sleep(1005); // set +5 to ensure the previous job is finished
         }
 
-        assert.deepStrictEqual(result, new Array(10).fill("Ayon Lee"));
-        assert.strictEqual(count, 10);
+        assert.deepStrictEqual(result, new Array(3).fill("Ayon Lee"));
+        assert.strictEqual(count, 3);
         await throttle.clear();
     });
 
-    it("should throw the same error if calls multiple times of a throttle", async () => {
+    it("should throw the same error if calls multiple times of a throttle", async function () {
+        this.timeout(15000);
         let throttle = redis.Throttle.of("test");
         let count = 0;
         let result = [];
@@ -831,7 +834,7 @@ describe("RedisThrottle", () => {
                 await throttle.run(async () => {
                     count++;
                     throw new Error("Something went wrong");
-                });
+                }, 2);
             } catch (e) {
                 result.push(e);
             }
@@ -839,7 +842,7 @@ describe("RedisThrottle", () => {
 
         assert.strictEqual(count, 1);
         assert.strictEqual(result.length, 2);
-        assert(result[0] === result[1]);
+        assert.strictEqual(format(result[0]), format(result[1]));
         await throttle.clear();
     });
 });

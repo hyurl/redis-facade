@@ -28,6 +28,7 @@
   },
   "homepage": "https://github.com/hyurl/redis-facade#readme",
   "dependencies": {
+    "@hyurl/structured-clone": "^0.2.0",
     "@hyurl/utils": "^0.1.24",
     "@types/redis": "^2.8.14",
     "redis": "^2.8.0",
@@ -37,6 +38,7 @@
   "devDependencies": {
     "@types/mocha": "^5.2.7",
     "mocha": "^6.2.2",
+    "source-map-support": "^0.5.16",
     "ts-node": "^8.5.4",
     "typescript": "^3.7.3"
   }

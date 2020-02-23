@@ -65,9 +65,9 @@ export interface RedisFacadeType<T> {
     /**
      * Creates a facade instance and associates to a key in Redis store.
      * 
-     * NOTE: If the facade is a `RedisQueue` or a `RedisThrottle`, the key will
-     * be used for the internal atomic lock; if the facade is a
-     * `RedisMessageQueue`, the key will be used as the channel name.
+     * NOTE: If the facade is a `RedisQueue`, the key will be used for the
+     * internal atomic lock; if the facade is a `RedisMessageQueue`, the key
+     * will be used as the channel name.
      */
     of(key: string): T;
     /**
@@ -399,6 +399,9 @@ export interface RedisThrottle {
      * Try to runs the task with the throttle strategy, if the task happens
      * within the `ttl`, the previous result will be returned instead, and the
      * current task function will not be run.
+     * 
+     * NOTE: the result shared across tasks or threads will serialized via
+     * [@hyurl/structured-clone](https://github.com/hyurl/structured-clone).
      * @param ttl How long should the last result be cached before refreshing
      *  (in seconds, default: `1`).
      * @param args If provided, they will be passed to the task function.
