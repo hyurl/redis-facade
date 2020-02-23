@@ -6,6 +6,7 @@ import createSetFacade from "./Set";
 import createSortedSetFacade from "./SortedSet";
 import createLockFacade from "./Lock";
 import createQueueFacade from "./Queue";
+import createThrottleFacade from "./Throttle";
 import createMessageQueue from "./MessageQueue";
 import { createFacadeUtils, RedisReply, redis, key } from "./util";
 
@@ -25,6 +26,7 @@ export default function createRedisFacade(redis: any): RedisFacadeEntry {
         SortedSet: createSortedSetFacade(redis),
         Lock: createLockFacade(redis),
         Queue: createQueueFacade(redis),
+        Throttle: createThrottleFacade(redis),
         MessageQueue: createMessageQueue(redis)
     }, createFacadeUtils(redis));
 }
@@ -37,6 +39,7 @@ export type RedisFacadeEntry = {
     SortedSet: RedisFacadeType<RedisSortedSet>,
     Lock: RedisFacadeType<RedisLock>,
     Queue: RedisFacadeType<RedisQueue>,
+    Throttle: RedisFacadeType<RedisThrottle>,
     MessageQueue: RedisFacadeType<RedisMessageQueue>
 } & RedisFacadeUtils;
 
@@ -62,9 +65,9 @@ export interface RedisFacadeType<T> {
     /**
      * Creates a facade instance and associates to a key in Redis store.
      * 
-     * NOTE: If the facade is a `RedisQueue`, the key will be used for the lock;
-     * if the facade is a `RedisMessageQueue`, the key will be used as the
-     * channel name.
+     * NOTE: If the facade is a `RedisQueue` or a `RedisThrottle`, the key will
+     * be used for the internal atomic lock; if the facade is a
+     * `RedisMessageQueue`, the key will be used as the channel name.
      */
     of(key: string): T;
     /**
@@ -377,18 +380,37 @@ export interface RedisLock {
 
 export interface RedisQueue {
     /**
-     * Pushes a task into the queue and runs it after the former task is
+     * Pushes a task into the queue and runs it after the previous task is
      * complete.
      * @param ttl Force to release the lock after timeout (in seconds, default:
      *  `30`).
      * @param args If provided, they will be passed to the task function when it
      *  runs.
      */
-    run<T extends (...args: any[]) => any>(
-        task: T,
+    run<T, A extends any[]>(
+        task: (...args: A) => T | Promise<T>,
         ttl?: number,
-        ...args: Parameters<T>
-    ): Promise<ReturnType<T> extends Promise<infer U> ? U : ReturnType<T>>;
+        ...args: A
+    ): Promise<T>;
+}
+
+export interface RedisThrottle {
+    /**
+     * Try to runs the task with the throttle strategy, if the task happens
+     * within the `ttl`, the previous result will be returned instead, and the
+     * current task function will not be run.
+     * @param ttl How long should the last result be cached before refreshing
+     *  (in seconds, default: `1`).
+     * @param args If provided, they will be passed to the task function.
+     */
+    run<T, A extends any[]>(
+        task: (...args: A) => T | Promise<T>,
+        ttl?: number,
+        ...args: A
+    ): Promise<T>;
+
+    /** Clears the cache as well as the internal lock, if they exist. */
+    clear(): Promise<void>;
 }
 
 export interface RedisMessageQueue {

@@ -21,11 +21,11 @@ export class RedisQueue extends RedisMessageQueue implements RedisQueueInterface
         });
     }
 
-    async run<T extends (...args: any[]) => any>(
-        task: T,
+    async run<T, A extends any[]>(
+        task: (...args: A) => T | Promise<T>,
         ttl = 30,
-        ...args: Parameters<T>
-    ): Promise<ReturnType<T> extends Promise<infer U> ? U : ReturnType<T>> {
+        ...args: A
+    ): Promise<T> {
         let job = new Promise<any>((resolve, reject) => {
             this.tasks.push({
                 task,
