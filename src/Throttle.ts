@@ -89,7 +89,7 @@ export class RedisThrottle extends RedisMessageQueue implements RedisThrottleInt
                 // published by the task that gained the lock.
                 return this.waitForRefreshing();
             }
-        } else if (cache = (await this.getCache())) {
+        } else if (cache = (await this.getCache(lock === "OK"))) {
             if (cache.error !== null)
                 throw cache.error;
             else
@@ -108,8 +108,19 @@ export class RedisThrottle extends RedisMessageQueue implements RedisThrottleInt
         );
     }
 
-    private async getCache(): Promise<{ value: any, error: any }> {
-        let cache = await exec<string>(this[redis], "get", this.cacheKey);
+    private async getCache(hasLock: boolean): Promise<{
+        value: any,
+        error: any
+    }> {
+        let args = [["get", this.cacheKey]];
+
+        // When getting the lastActiveTime, we also attempt to set a lock in
+        // order to achieve atomic operation, if the lastActiveTime is within
+        // the TTL and we're going to retrieve the data from cache, we must, as
+        // well, release that lock if we have had it.
+        hasLock && args.push(["del", this.lockKey]);
+
+        let [cache] = await batch<[string]>(this[redis], ...args);
         return cache ? deserialize(cache) : null;
     }
 

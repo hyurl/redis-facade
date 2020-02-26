@@ -1,6 +1,6 @@
 {
   "name": "redis-facade",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Manipulates redis data in javascript vernacular.",
   "main": "dist/index.js",
   "types": "src/index.ts",
