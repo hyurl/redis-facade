@@ -1,23 +1,24 @@
 import sequid from "sequid";
 import { RedisClient } from "redis";
-import { RedisMessageQueue } from "./MessageQueue";
+import { FlowControl } from './FlowControl';
+import { RedisMessageQueue } from './MessageQueue';
 import { RedisQueue as RedisQueueInterface } from "./index";
-import { CommandArguments, createFacadeType } from "./util";
+import { key as _key, exec, CommandArguments, createFacadeType } from "./util";
+import isEmpty from '@hyurl/utils/isEmpty';
 
-export class RedisQueue extends RedisMessageQueue implements RedisQueueInterface {
+export class RedisQueue extends FlowControl implements RedisQueueInterface {
     private static uids = sequid(0, true);
-    private tasks: {
+    private static tasks = new Map<string, {
         task: (...args: any[]) => any;
         resolve: (value: any) => void;
         reject: (err: Error) => void;
         ttl: number;
         args: any[]
-    }[] = [];
+    }[]>();
 
     constructor(redis: RedisClient, key: string) {
-        super(redis, key);
-        this.addListener((msg) => {
-            msg === "tryTask" && this.tryTask();
+        super(redis, key, _key => {
+            RedisQueue.tryTask(redis, _key);
         });
     }
 
@@ -26,30 +27,44 @@ export class RedisQueue extends RedisMessageQueue implements RedisQueueInterface
         ttl = 30,
         ...args: A
     ): Promise<T> {
-        let job = new Promise<any>((resolve, reject) => {
-            this.tasks.push({
+        if (ttl < 1) {
+            throw new RangeError(
+                "The 'ttl' for throttle must not be smaller than 1"
+            );
+        }
+
+        return new Promise<any>((resolve, reject) => {
+            let tasks = RedisQueue.tasks.get(this[_key]);
+
+            if (!tasks) {
+                RedisQueue.tasks.set(this[_key], tasks = []);
+            }
+
+            tasks.push({
                 task,
                 resolve,
                 reject,
                 ttl,
                 args
             });
-        });
 
-        this.publish("tryTask");
-        return job;
+            RedisQueue.message.publish(this[_key]);
+        });
     }
 
-    private async tryTask() {
-        if (this.tasks.length > 0) {
-            let value = String(RedisQueue.uids.next().value);
-            let args: CommandArguments = [value, "nx"];
-            let { ttl } = this.tasks[0];
+    private static async tryTask(redis: RedisClient, key: string) {
+        let tasks = this.tasks.get(key);
+
+        if (!isEmpty(tasks)) {
+            let lockKey = "RedisQueue:" + key;
+            let value = String(this.uids.next().value);
+            let args: CommandArguments = [lockKey, value, "nx"];
+            let { ttl } = tasks[0];
             ttl > 0 && args.push("ex", ttl);
-            let lock = await this.exec("set", ...args);
+            let lock = await exec(redis, "set", ...args);
 
             if (lock === "OK") {
-                let { task, args, resolve, reject } = this.tasks.shift();
+                let { task, args, resolve, reject } = tasks.shift();
 
                 try {
                     let res = await task.apply(void 0, args);
@@ -61,8 +76,8 @@ export class RedisQueue extends RedisMessageQueue implements RedisQueueInterface
                     // lock, we need to ensure when this former task completes,
                     // it will not delete the lock that was set by the later
                     // task.
-                    if ((await this.exec("get")) === value) {
-                        await this.clear();
+                    if ((await exec(redis, "get", lockKey)) === value) {
+                        await exec(redis, "del", lockKey);
                     }
 
                     resolve(res);
@@ -70,17 +85,17 @@ export class RedisQueue extends RedisMessageQueue implements RedisQueueInterface
                     reject(err);
                 }
 
-                this.publish("tryTask");
+                this.message.publish(key);
             }
+
+            if (isEmpty(tasks))
+                this.tasks.delete(key);
         }
     }
 
-    static of(redis: RedisClient, key: string) {
-        return new RedisQueue(redis, `RedisQueue:${key}`);
-    }
-
     static async has(redis: RedisClient, key: string) {
-        return RedisMessageQueue.has(redis, `RedisQueue:${key}`);
+        return RedisMessageQueue.has(redis, this.name)
+            && this.tasks.has(key);
     }
 }
 
