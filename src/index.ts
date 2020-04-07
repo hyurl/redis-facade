@@ -456,10 +456,16 @@ export interface RedisThrottleQueue {
         repeat?: number;
     }): Promise<boolean>;
 
+    /**
+     * Starts to process with a handler function listening for available data.
+     * @param concurrency The maximum number of tasks processed each time,
+     *  default: `1`.
+     * @param interval The interval time of each round, default `1` second.
+     */
     start(
-        options: { interval?: number, concurrency?: number },
         handle: (data: any) => void | Promise<void>,
-        errorHandle?: (err: Error) => void
+        concurrency?: number,
+        interval?: number
     ): Promise<void>;
 
     stop(): Promise<void>;

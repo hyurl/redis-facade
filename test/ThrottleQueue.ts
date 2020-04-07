@@ -12,12 +12,9 @@ describe("RedisThrottleQueue", () => {
         let user2 = { name: "Luna", age: 36 };
         let result: any[] = [];
 
-        await queue.start(
-            {},
-            async (data: { name: string, age: number }) => {
-                result.push(data);
-            }
-        );
+        await queue.start(async (data: { name: string, age: number }) => {
+            result.push(data);
+        });
 
         assert.strictEqual(await queue.push(user1), true);
         assert.strictEqual(await queue.push(user2, {
@@ -45,17 +42,14 @@ describe("RedisThrottleQueue", () => {
         let user2 = { name: "Luna", age: 36 };
         let result: any[] = [];
 
-        await queue.start(
-            { concurrency: 2 },
-            async (data: { name: string, age: number }) => {
-                result.push(data);
-            }
-        );
+        await queue.start(async (data: { name: string, age: number }) => {
+            result.push(data);
+        }, 2);
 
         assert.strictEqual(await queue.push(user1), true);
         assert.strictEqual(await queue.push(user2), true);
 
-        await sleep(3000);
+        await sleep(4000);
 
         assert.deepStrictEqual(
             result.sort((a, b) => a.age - b.age),
@@ -73,12 +67,9 @@ describe("RedisThrottleQueue", () => {
         let user2 = { name: "Luna", age: 36 };
         let result: any[] = [];
 
-        await queue.start(
-            { interval: 2 },
-            async (data: { name: string, age: number }) => {
-                result.push(data);
-            }
-        );
+        await queue.start(async (data: { name: string, age: number }) => {
+            result.push(data);
+        }, 1, 2);
 
         assert.strictEqual(await queue.push(user1), true);
         assert.strictEqual(await queue.push(user2), true);

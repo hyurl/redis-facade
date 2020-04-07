@@ -25,11 +25,24 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
     }
 
     async start(
-        options: { interval?: number, concurrency?: number },
         handle: (data: any) => void | Promise<void>,
-        errorHandle: (err: Error) => void = null
+        concurrency = 1,
+        interval = 1
     ) {
-        let { interval = 1, concurrency = 1 } = options;
+        if (concurrency > interval) {
+            concurrency = Math.round(concurrency / interval);
+            interval = 1;
+        }
+
+        let _interval = interval * 1000;
+        let tryHandle = async (data: any) => {
+            try {
+                await handle(data);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
         this.state = "running";
         this.timer = setInterval(async () => {
             if (this.state !== "running")
@@ -37,18 +50,19 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
 
             let list = await this.pull(concurrency);
 
-            if (!isEmpty(list)) {
-                list.map(async (data) => {
-                    try {
-                        await handle(data);
-                    } catch (err) {
-                        if (typeof errorHandle === "function") {
-                            errorHandle(err);
-                        }
+            if (list.length === 1) {
+                tryHandle(list[0]);
+            } else if (list.length > 1) {
+                let index = 0;
+                let balancer = setInterval(() => {
+                    tryHandle(list[index++]);
+
+                    if (index === list.length) {
+                        clearInterval(balancer);
                     }
-                });
+                }, Math.round(_interval / list.length));
             }
-        }, interval * 1000);
+        }, _interval);
     }
 
     async stop(): Promise<void> {
