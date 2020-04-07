@@ -29,11 +29,6 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
         concurrency = 1,
         interval = 1
     ) {
-        if (concurrency > interval) {
-            concurrency = Math.round(concurrency / interval);
-            interval = 1;
-        }
-
         let _interval = interval * 1000;
         let tryHandle = async (data: any) => {
             try {
