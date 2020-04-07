@@ -135,7 +135,9 @@ describe("RedisSet", () => {
     it("should iterate all elements in the set", async () => {
         let values = [];
         let container = { values: [] };
-        let _values = await set.values();
+        let _values = (await set.values()).sort();
+
+        console.log(_values);
 
         await set.forEach((value) => {
             values.push(value);
@@ -143,6 +145,9 @@ describe("RedisSet", () => {
         await set.forEach(function (this: any, value) {
             this.values.push(value);
         }, container);
+
+        values.sort();
+        container.values.sort();
 
         assert.deepStrictEqual(values, _values);
         assert.deepStrictEqual(container, {

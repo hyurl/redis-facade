@@ -59,7 +59,7 @@ export class RedisThrottle extends FlowControl implements RedisThrottleInterface
         // so we use a lock to provide an atomic operation between all the tasks.
         let [lastActiveTime, lock] = await batch<[string, string]>(this[redis],
             ["get", this.timeKey], // get lastActiveTime
-            ["set", this.lockKey, 1, "nx"] // acquire lock
+            ["set", this.lockKey, 1, "nx", "ex", 120] // acquire lock
         );
 
         if (now - Number(lastActiveTime || 0) >= ttl) {

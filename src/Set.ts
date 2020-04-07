@@ -34,9 +34,9 @@ class RedisSet extends RedisFacade implements RedisSetInterface {
         while (true) {
             let [_csr, items] = await this.exec<[string, string[]]>("sscan", csr);
 
-            for (let value of items) {
+            items.forEach(value => {
                 fn.apply(thisArg, [value]);
-            }
+            });
 
             csr = Number(_csr);
             if (csr === 0) {

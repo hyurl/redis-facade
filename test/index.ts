@@ -10,6 +10,7 @@ import "./Lock";
 import "./MessageQueue";
 import "./Queue";
 import "./Throttle";
+import "./ThrottleQueue";
 
 after(async () => {
     await redis.delete("foo");

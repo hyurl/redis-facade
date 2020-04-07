@@ -8,6 +8,7 @@ import createLockFacade from "./Lock";
 import createQueueFacade from "./Queue";
 import createThrottleFacade from "./Throttle";
 import createMessageQueue from "./MessageQueue";
+import createThrottleQueueFacade from "./ThrottleQueue";
 import { createFacadeUtils, RedisReply, redis, key } from "./util";
 
 /** Creates a new facade with a redis connection. */
@@ -27,6 +28,7 @@ export default function createRedisFacade(redis: any): RedisFacadeEntry {
         Lock: createLockFacade(redis),
         Queue: createQueueFacade(redis),
         Throttle: createThrottleFacade(redis),
+        ThrottleQueue: createThrottleQueueFacade(redis),
         MessageQueue: createMessageQueue(redis)
     }, createFacadeUtils(redis));
 }
@@ -40,6 +42,7 @@ export type RedisFacadeEntry = {
     Lock: RedisFacadeType<RedisLock>,
     Queue: RedisFacadeType<RedisQueue>,
     Throttle: RedisFacadeType<RedisThrottle>,
+    ThrottleQueue: RedisFacadeType<RedisThrottleQueue>,
     MessageQueue: RedisFacadeType<RedisMessageQueue>
 } & RedisFacadeUtils;
 
@@ -423,4 +426,41 @@ export interface RedisMessageQueue {
     removeListener(listener: (msg: string) => void): boolean;
     /** Publishes a message to the message queue. */
     publish(msg: string): boolean;
+}
+
+export interface RedisThrottleQueue {
+    /**
+     * If the task hasn't been queued, this method pushes it into the queue and
+     * returns `true`, otherwise, it returns `false`. This method will
+     * automatically calculate the signature of the data and prevent duplicates. 
+     * @param data The data to be processed
+     */
+    push(data: any, options?: {
+        /**
+         * The theoretical time to start the task, the task will not be
+         * started until the throttle allows it.
+         */
+        start?: number;
+        /**
+         * The end time of the task, once reached, the task will be marked as
+         * expired and removed from the queue.
+         * 
+         * NOTE: a task may ends before it actually starts.
+         */
+        end?: number;
+        /**
+         * If set, the task will not be removed after processing, instead it
+         * increases the next tick time according to the repeat time and will be
+         * repeatedly processed until reaching the end time.
+         */
+        repeat?: number;
+    }): Promise<boolean>;
+
+    start(
+        options: { interval?: number, concurrency?: number },
+        handle: (data: any) => void | Promise<void>,
+        errorHandle?: (err: Error) => void
+    ): Promise<void>;
+
+    stop(): Promise<void>;
 }
