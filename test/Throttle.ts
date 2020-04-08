@@ -4,7 +4,7 @@ import redis from "./redis";
 import { format } from "util";
 
 describe("RedisThrottle", () => {
-    it("should pend multiple tasks but only run one of them", async () => {
+    it("should append multiple tasks but only run one of them", async () => {
         let throttle = redis.Throttle.of("test");
         let count = 0;
         let result = await Promise.all(
@@ -19,7 +19,7 @@ describe("RedisThrottle", () => {
         await throttle.clear();
     });
 
-    it("should pend multiple tasks and run them accordingly", async function () {
+    it("should append multiple tasks and run them accordingly", async function () {
         this.timeout(15000);
         let throttle = redis.Throttle.of("test");
         let count = 0;

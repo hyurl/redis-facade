@@ -44,18 +44,21 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
                 return;
 
             let list = await this.pull(concurrency);
+            let count = list.length;
 
-            if (list.length === 1) {
+            if (count > 0) {
                 tryHandle(list[0]);
-            } else if (list.length > 1) {
-                let index = 0;
-                let balancer = setInterval(() => {
-                    tryHandle(list[index++]);
 
-                    if (index === list.length) {
-                        clearInterval(balancer);
-                    }
-                }, Math.round(_interval / list.length));
+                if (count > 1) {
+                    let cursor = 1;
+                    let balancer = setInterval(() => {
+                        tryHandle(list[cursor++]);
+
+                        if (cursor === count) {
+                            clearInterval(balancer);
+                        }
+                    }, Math.round(_interval / count));
+                }
             }
         }, _interval);
     }
