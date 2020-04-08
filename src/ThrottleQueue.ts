@@ -101,9 +101,9 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
 
         if (isImmediate) {
             // If the task doesn't have a start time set when pushing it, we
-            // consider such task is intended to be started immediately,
+            // consider such a task is intended to be started immediately,
             // and its score should not be allowed to update in order to
-            // guarantee the validity of the task when the initial time reaches.
+            // guarantee the validity when the initial time reaches.
             regArgs.splice(1, 0, "NX");
         }
 
@@ -118,12 +118,13 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
             end > 0 && cacheArgs.push("EX", String(end - now + 1));
             job = ["SET", ...cacheArgs]; // set cache
             ok = true;
-        } else if (
-            (ttl = Number(await exec(this[redis], "TTL", cacheKey)) || 0) > 0 &&
-            ttl + now < end // indicates end time has changed
-        ) {
-            job = ["EXPIREAT", cacheKey, end]; // update expiration time
-            ok = true;
+        } else if (end > 0) {
+            ttl = Number(await exec(this[redis], "TTL", cacheKey) || 0);
+
+            if (ttl === -1 || ttl + now < end) { // end time changed
+                job = ["EXPIREAT", cacheKey, end]; // update expiration time
+                ok = true;
+            }
         }
 
         if (!isEmpty(job)) {
