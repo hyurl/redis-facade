@@ -13,7 +13,6 @@ import md5 = require("md5");
 export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
     private queueKey: string;
     private lockKey: string;
-    private cacheKey: string;
     private timer: NodeJS.Timer;
     private state: "running" | "stopped";
 
@@ -21,7 +20,6 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
         super(redis, key);
         this.queueKey = "RedisThrottleQueue:" + key;
         this.lockKey = "RedisThrottleQueueLock:" + key;
-        this.cacheKey = "RedisThrottleQueueCache:" + key;
     }
 
     async start(
@@ -84,11 +82,10 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
         }
 
         data = compose(sort(data, true));
+
         let json = JSON.stringify(data);
         let sign = md5(json);
-        let cacheKey = this.cacheKey + ":" + sign;
         let lockKey = this.lockKey + ":" + sign;
-        // let task = { data, end, repeat };
 
         // A lock is needed in order to update the expiration time of the task
         // and prevent duplicated processes.
@@ -97,7 +94,16 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
         if (lock !== "OK")
             return false;
 
-        let regArgs = [this.queueKey, start, sign];
+        let cache = JSON.stringify({ end, repeat });
+
+        // Use a little trick to prevent serializing data again.
+        if (cache === "{}") {
+            cache = `{"data":${json}}`;
+        } else {
+            cache = `{"data":${json},` + cache.slice(1);
+        }
+
+        let regArgs = [this.queueKey, start, cache];
 
         if (isImmediate) {
             // If the task doesn't have a start time set when pushing it, we
@@ -107,120 +113,79 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
             regArgs.splice(1, 0, "NX");
         }
 
-        let count = await exec(this[redis], "ZADD", ...regArgs); // push task
-        let ok = false;
-        let ttl: number;
-        let job: (string | number)[];
+        let [count] = await batch(
+            this[redis],
+            ["ZADD", ...regArgs], // push task
+            ["DEL", lockKey] // release lock
+        );
 
-        if (Number(count) === 1) { // push succeed
-            let cacheArgs = [cacheKey, JSON.stringify({ data, end, repeat })];
+        return Number(count) > 0;
+    }
 
-            end > 0 && cacheArgs.push("EX", String(end - now + 1));
-            job = ["SET", ...cacheArgs]; // set cache
-            ok = true;
-        } else if (end > 0) {
-            ttl = Number(await exec(this[redis], "TTL", cacheKey) || 0);
+    private async doPull(
+        score: number,
+        offset: number,
+        count: number
+    ) {
+        let minScore = score - 604800; // max range is 1 week
+        let caches: string[] = await exec( // retrieve all registered tasks
+            this[redis],
+            "ZRANGEBYSCORE",
+            this.queueKey,
+            `(${minScore}`,
+            score,
+            "LIMIT",
+            offset,
+            count
+        );
 
-            if (ttl === -1 || ttl + now < end) { // end time changed
-                job = ["EXPIREAT", cacheKey, end]; // update expiration time
-                ok = true;
-            }
-        }
-
-        if (!isEmpty(job)) {
-            await batch(
-                this[redis],
-                job,
-                ["DEL", lockKey] // release lock
-            );
-        } else {
-            await exec(this[redis], "DEL", lockKey);
-        }
-
-        return ok;
+        return caches;
     }
 
     private async pull(count: number) {
         // A lock is needed in order to prevent duplicated pulls and updates.
-        let { lockKey } = this;
+        let { lockKey, queueKey } = this;
         let lock = await exec(this[redis], "SET", lockKey, 1, "NX", "EX", 5);
 
         if (lock !== "OK")
             return [];
 
         let now = timestamp();
-        let fromTime = now - 604800; // max range is 1 week
-        let signs: string[] = await exec( // retrieve all registered tasks
-            this[redis],
-            "ZRANGEBYSCORE",
-            this.queueKey,
-            `(${fromTime}`,
-            now,
-        );
-
-        if (isEmpty(signs) || !Array.isArray(signs)) {
-            await exec(this[redis], "DEL", lockKey); // release lock
-            return [];
-        }
-
-        // retrieve all tasks
-        let cacheKeys = signs.map(sign => this.cacheKey + ":" + sign);
-        let caches = await batch(this[redis], ...cacheKeys.map(
-            cacheKey => ["GET", cacheKey]
-        ));
-        let tasks = caches.map(cache => {
-            if (isEmpty(cache)) {
-                return null;
-            } else {
-                let task: {
-                    data: any;
-                    end?: number;
-                    repeat?: number;
-                } = JSON.parse(String(cache));
-
-                task.data = decompose(task.data);
-                return task;
-            }
-        });
-
+        let result: any[] = []; // pulled data
         let jobs: (string | number)[][] = []; // update jobs
-        let list: any[] = []; // pulled data
 
-        for (let i = 0; i < tasks.length; ++i) {
-            let task = tasks[i];
-            let sign = signs[i];
-            let cacheKey = cacheKeys[i];
+        do {
+            let _offset = result.length;
+            let _count = count - result.length;
+            let caches = await this.doPull(now, _offset, _count);
 
-            if (isEmpty(task)) { // cache has expired
-                jobs.push(["ZREM", this.queueKey, sign]); // delete registry
-            } else {
+            for (let i = 0; i < caches.length; ++i) {
+                let cache = caches[i];
+                let task: {
+                    data: any,
+                    end?: number,
+                    repeat?: number
+                } = JSON.parse(cache);
+
                 let isValid = isEmpty(task.end) || task.end <= now;
-                let deletions = [
-                    ["DEL", cacheKey], // delete cache
-                    ["ZREM", this.queueKey, sign] // delete registry
-                ];
 
                 if (isValid) {
-                    list.push(task.data);
+                    result.push(decompose(task.data));
 
                     if (task.repeat > 0) { // update task
-                        jobs.push(
-                            ["ZADD", this.queueKey, now + task.repeat, sign]
-                        );
+                        jobs.push(["ZADD", queueKey, now + task.repeat, cache]);
                     } else { // delete task
-                        jobs.push(...deletions);
+                        jobs.push(["ZREM", queueKey, cache]);
                     }
-
-                    // No need to loop and check all tasks, just break after
-                    // collected enough ones.
-                    if (list.length === count) {
-                        break;
-                    }
-                } else if (!isValid) { // remove expired task
-                    jobs.push(...deletions);
+                } else { // remove expired task
+                    jobs.push(["ZREM", queueKey, cache]);
                 }
+            };
+
+            if (caches.length < _count) { // no more cache available
+                break;
             }
-        };
+        } while (result.length < count);
 
         if (!isEmpty(jobs)) {
             await batch(
@@ -232,7 +197,7 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
             await exec(this[redis], "DEL", lockKey);
         }
 
-        return list;
+        return result;
     }
 
     static async has(redis: RedisClient, key: string) {
