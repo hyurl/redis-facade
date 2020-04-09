@@ -8,17 +8,20 @@ import timestamp from "@hyurl/utils/timestamp";
 import isVoid from "@hyurl/utils/isVoid";
 import isEmpty from "@hyurl/utils/isEmpty";
 import md5 = require("md5");
+import flat = require("lodash/flatten");
 
 
 export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
-    private queueKey: string;
     private lockKey: string;
+    private queueKey: string;
+    private storeKey: string;
     private timer: NodeJS.Timer;
     private state: "running" | "stopped";
 
     constructor(redis: RedisClient, key: string) {
         super(redis, key);
         this.queueKey = "RedisThrottleQueue:" + key;
+        this.storeKey = "RedisThrottleQueueStore:" + key;
         this.lockKey = "RedisThrottleQueueLock:" + key;
     }
 
@@ -63,8 +66,12 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
 
     async stop(): Promise<void> {
         this.state = "stopped";
-        this.timer ?? clearInterval(this.timer);
+        this.timer && clearInterval(this.timer);
         await exec(this[redis], "DEL", this.lockKey); // try to release lock
+    }
+
+    async clear() {
+        await this.exec("DEL", this.queueKey, this.storeKey, this.lockKey);
     }
 
     async push(data: any, options?: {
@@ -86,24 +93,30 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
         let json = JSON.stringify(data);
         let sign = md5(json);
         let lockKey = this.lockKey + ":" + sign;
+        let { storeKey } = this;
 
         // A lock is needed in order to update the expiration time of the task
         // and prevent duplicated processes.
-        let lock = await exec(this[redis], "SET", lockKey, 1, "NX", "EX", 5);
+        let [lock, cache] = await batch(
+            this[redis],
+            ["SET", lockKey, 1, "NX", "EX", 5],
+            ["HGET", storeKey, sign]
+        );
 
         if (lock !== "OK")
             return false;
 
-        let cache = JSON.stringify({ end, repeat });
+        let task = JSON.stringify({ end, repeat });
 
         // Use a little trick to prevent serializing data again.
-        if (cache === "{}") {
-            cache = `{"data":${json}}`;
+        if (task === "{}") {
+            task = `{"data":${json}}`;
         } else {
-            cache = `{"data":${json},` + cache.slice(1);
+            task = `{"data":${json},` + task.slice(1);
         }
 
-        let regArgs = [this.queueKey, start, cache];
+        let regArgs = [this.queueKey, start, sign];
+        let isModified = cache !== task;
 
         if (isImmediate) {
             // If the task doesn't have a start time set when pushing it, we
@@ -113,13 +126,18 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
             regArgs.splice(1, 0, "NX");
         }
 
-        let [count] = await batch(
-            this[redis],
-            ["ZADD", ...regArgs], // push task
+        let jobs = [
+            ["ZADD", ...regArgs], // register signature
             ["DEL", lockKey] // release lock
-        );
+        ];
 
-        return Number(count) > 0;
+        if (isModified) {
+            jobs.splice(1, 0, ["HSET", storeKey, sign, task]); // set cache
+        }
+
+        let [count] = await batch(this[redis], ...jobs);
+
+        return Number(count) > 0 || isModified;
     }
 
     private async doPull(
@@ -144,7 +162,7 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
 
     private async pull(count: number) {
         // A lock is needed in order to prevent duplicated pulls and updates.
-        let { lockKey, queueKey } = this;
+        let { lockKey, queueKey, storeKey } = this;
         let lock = await exec(this[redis], "SET", lockKey, 1, "NX", "EX", 5);
 
         if (lock !== "OK")
@@ -153,39 +171,62 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
         let now = timestamp();
         let result: any[] = []; // pulled data
         let jobs: (string | number)[][] = []; // update jobs
+        let updateSigns: [number, string][] = [];
+        let deleteSigns: string[] = [];
+        let deleteFields: string[] = [];
 
         do {
             let _offset = result.length;
             let _count = count - result.length;
-            let caches = await this.doPull(now, _offset, _count);
+            let signs = await this.doPull(now, _offset, _count);
+            let caches: string[] = await batch(this[redis], ...signs.map(
+                sign => ["HGET", storeKey, sign]
+            ));
 
-            for (let i = 0; i < caches.length; ++i) {
+            for (let i = 0; i < signs.length; ++i) {
+                let sign = signs[i];
                 let cache = caches[i];
+
+                if (isEmpty(cache)) {
+                    deleteSigns.push(sign); // delete invalid signature
+                    continue;
+                }
+
                 let task: {
                     data: any,
                     end?: number,
                     repeat?: number
                 } = JSON.parse(cache);
-
                 let isValid = isEmpty(task.end) || task.end <= now;
 
                 if (isValid) {
                     result.push(decompose(task.data));
 
                     if (task.repeat > 0) { // update task
-                        jobs.push(["ZADD", queueKey, now + task.repeat, cache]);
-                    } else { // delete task
-                        jobs.push(["ZREM", queueKey, cache]);
+                        updateSigns.push([now + task.repeat, sign]);
+                    } else { // remove processed task
+                        deleteSigns.push(sign);
+                        deleteFields.push(sign);
                     }
                 } else { // remove expired task
-                    jobs.push(["ZREM", queueKey, cache]);
+                    deleteSigns.push(sign);
+                    deleteFields.push(sign);
                 }
             };
 
-            if (caches.length < _count) { // no more cache available
+            if (signs.length < _count) { // no more task available
                 break;
             }
         } while (result.length < count);
+
+        if (!isEmpty(updateSigns))
+            jobs.push(["ZADD", queueKey, ...flat(updateSigns)]);
+
+        if (!isEmpty(deleteSigns))
+            jobs.push(["ZREM", queueKey, ...deleteSigns]);
+
+        if (!isEmpty(deleteFields))
+            jobs.push(["HDEL", storeKey, ...deleteFields]);
 
         if (!isEmpty(jobs)) {
             await batch(

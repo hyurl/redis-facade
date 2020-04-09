@@ -110,11 +110,7 @@ export class RedisThrottle extends FlowControl implements RedisThrottleInterface
 
     /** @override */
     async clear() {
-        await batch(this[redis],
-            ["del", this.timeKey], // delete lastActiveTime
-            ["del", this.cacheKey], // delete cache
-            ["del", this.lockKey] // release lock
-        );
+        await this.exec("DEL", this.timeKey, this.cacheKey, this.lockKey);
     }
 
     private async getCache(hasLock: boolean): Promise<{
