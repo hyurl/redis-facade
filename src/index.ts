@@ -468,5 +468,9 @@ export interface RedisThrottleQueue {
         interval?: number
     ): Promise<void>;
 
+    /** Stops the queue. */
     stop(): Promise<void>;
+
+    /** Clears all the waiting tasks in the queue. */
+    clear(): Promise<void>;
 }
