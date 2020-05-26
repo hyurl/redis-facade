@@ -1,6 +1,6 @@
 # Redis Facade
 
-**Manipulates redis data in javascript vernacular.**
+**Manipulates redis data in JavaScript vernacular.**
 
 This package help you bind a Redis key to a JavaScript variable with precise
 data type, and manipulate the specific data with similar methods borrowed from

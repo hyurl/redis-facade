@@ -1,7 +1,7 @@
 {
   "name": "redis-facade",
-  "version": "1.4.8",
-  "description": "Manipulates redis data in javascript vernacular.",
+  "version": "1.5.0",
+  "description": "Manipulates redis data in JavaScript vernacular.",
   "main": "dist/index.js",
   "types": "src/index.ts",
   "scripts": {
@@ -28,8 +28,8 @@
   },
   "homepage": "https://github.com/hyurl/redis-facade#readme",
   "dependencies": {
-    "@hyurl/structured-clone": "^0.2.3",
-    "@hyurl/utils": "^0.1.50",
+    "@hyurl/structured-clone": "^0.2.4",
+    "@hyurl/utils": "^0.2.0",
     "@types/redis": "^2.8.21",
     "lodash": "^4.17.15",
     "md5": "^2.2.1",
