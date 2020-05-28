@@ -74,11 +74,37 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
         await this.exec("DEL", this.queueKey, this.storeKey, this.lockKey);
     }
 
+    async add(data: any, options?: {
+        start?: number;
+        repeat?: number;
+        end?: number;
+    }): Promise<string> {
+        return (await this.doPush(data, options, true)) as string;
+    }
+
     async push(data: any, options?: {
         start?: number;
         repeat?: number;
         end?: number;
     }): Promise<boolean> {
+        return (await this.doPush(data, options, false)) as boolean;
+    }
+
+    async delete(sign: string) {
+        let { queueKey, storeKey } = this;
+        let [count, _count] = await batch(this[redis],
+            ["ZREM", queueKey, sign],
+            ["HDEL", storeKey, sign]
+        );
+
+        return count === 1 || _count === 1;
+    }
+
+    private async doPush(data: any, options?: {
+        start?: number;
+        repeat?: number;
+        end?: number;
+    }, returnSign = false): Promise<string | boolean> {
         let now = timestamp();
         let isImmediate = false;
         let { start, end, repeat } = options || {};
@@ -104,7 +130,7 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
         );
 
         if (lock !== "OK")
-            return false;
+            return returnSign ? sign : false;
 
         let task = JSON.stringify({ end, repeat });
 
@@ -137,7 +163,7 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
 
         let [count] = await batch(this[redis], ...jobs);
 
-        return Number(count) > 0 || isModified;
+        return returnSign ? sign : (Number(count) > 0 || isModified);
     }
 
     private async doPull(
@@ -176,6 +202,9 @@ export class RedisThrottleQueue extends RedisFacade implements iThrottleQueue {
         let deleteFields: string[] = [];
 
         do {
+            if (this.state === "stopped")
+                break;
+
             let _offset = result.length;
             let _count = count - result.length;
             let signs = await this.doPull(now, _offset, _count);

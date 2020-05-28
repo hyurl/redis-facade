@@ -4,7 +4,7 @@ import redis from "./redis";
 import timestamp from "@hyurl/utils/timestamp";
 
 describe("RedisThrottleQueue", () => {
-    it("should start a queue and push data into it", async function () {
+    it("should start a queue and adds tasks into it", async function () {
         this.timeout(5000);
 
         let queue = redis.ThrottleQueue.of("test");
@@ -16,7 +16,9 @@ describe("RedisThrottleQueue", () => {
             result.push(data);
         });
 
-        assert.strictEqual(await queue.push(user1), true);
+        let sign1 = await queue.add(user1);
+
+        assert.strictEqual(sign1, "d22f1f10f3d76e14ed9a58821154d7f7");
         assert.strictEqual(await queue.push(user2, {
             start: timestamp() + 1
         }), true);
@@ -46,7 +48,9 @@ describe("RedisThrottleQueue", () => {
             result.push(data);
         }, 2);
 
-        assert.strictEqual(await queue.push(user1), true);
+        let sign1 = await queue.add(user1);
+
+        assert.strictEqual(sign1, "d22f1f10f3d76e14ed9a58821154d7f7");
         assert.strictEqual(await queue.push(user2), true);
 
         await sleep(4000);
@@ -71,7 +75,9 @@ describe("RedisThrottleQueue", () => {
             result.push(data);
         }, 1, 2);
 
-        assert.strictEqual(await queue.push(user1), true);
+        let sign1 = await queue.add(user1);
+
+        assert.strictEqual(sign1, "d22f1f10f3d76e14ed9a58821154d7f7");
         assert.strictEqual(await queue.push(user2), true);
 
         await sleep(1500);
@@ -85,6 +91,29 @@ describe("RedisThrottleQueue", () => {
             result.sort((a, b) => a.age - b.age),
             [user1, user2]
         );
+
+        await queue.stop();
+    });
+
+    it("should cancel a task as expected", async function () {
+        this.timeout(5000);
+
+        let queue = redis.ThrottleQueue.of("test");
+        let user1 = { name: "Ayon", age: 24 };
+        let user2 = { name: "Luna", age: 36 };
+        let result: any[] = [];
+
+        await queue.start(async (data: { name: string, age: number }) => {
+            result.push(data);
+        }, 1, 2);
+
+        await queue.add(user1);
+        let sign2 = await queue.add(user2);
+
+        assert.strictEqual(await queue.delete(sign2), true);
+
+        await sleep(2500);
+        assert.deepStrictEqual(result, [user1]);
 
         await queue.stop();
     });
