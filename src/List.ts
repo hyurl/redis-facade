@@ -133,7 +133,7 @@ class RedisList extends RedisFacade implements RedisListInterface {
             ["sort", "alpha", _order, "store", this[key]],
             ["lrange", 0, -1]
         );
-        return values;
+        return values as string[];
     }
 
     async reverse() {
