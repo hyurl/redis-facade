@@ -9,7 +9,7 @@
     "test": "mocha test/index.ts --require ts-node/register --recursive --exit"
   },
   "engines": {
-    "node": ">=6.0"
+    "node": ">=8.3"
   },
   "repository": {
     "type": "git",
